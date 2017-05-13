@@ -3,7 +3,6 @@
 # Code mostly taken from the Google Python API Tutorial at:
 # https://cloud.google.com/compute/docs/tutorials/python-guide
 
-import argparse
 import os
 import time
 
@@ -22,22 +21,21 @@ def list_instances(compute, project, zone):
 # [START create_instance]
 def create_instance(compute, project, zone, name, bucket):
     # Get the latest Debian Jessie image.
-    '''
-    image_response = compute.images().getFromFamily(
-        project='debian-cloud', family='debian-8').execute() #TODO: Change to custom image
-    source_disk_image = image_response['selfLink']
-    '''
 
+    image_response = compute.images().getFromFamily(
+        project = 'debian-cloud',
+        family = 'debian-8').execute()
+    source_disk_image = image_response['selfLink']
+
+    # TODO: Change to custom image
     # load custom image
-    source_disk_image = "https://googleapis.com/compute/v1/projects/" + project + "/global/images/worker-image-2"
-    
+    # source_disk_image = "https://googleapis.com/compute/v1/projects/" + project + "/global/images/worker-image-2"
+
     # Configure the machine
     machine_type = "zones/%s/machineTypes/n1-standard-1" % zone
     startup_script = open(
         os.path.join(
             os.path.dirname(__file__), 'startup-script.sh'), 'r').read()
-    image_url = "http://storage.googleapis.com/gce-demo-input/photo.jpg"
-    image_caption = "Ready for dessert?"
 
     config = {
         'name': name,
@@ -82,10 +80,10 @@ def create_instance(compute, project, zone, name, bucket):
                 'value': startup_script
             }, {
                 'key': 'url',
-                'value': image_url
+                'value': 'URL'
             }, {
                 'key': 'text',
-                'value': image_caption
+                'value': 'image_caption'
             }, {
                 'key': 'bucket',
                 'value': bucket
