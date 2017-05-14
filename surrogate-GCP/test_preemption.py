@@ -30,13 +30,13 @@ class TestPreemptibleBasicWorkerThread(PreemptibleBasicWorkerThread):
         self.id = threadID
         PreemptibleBasicWorkerThread.__init__(self, controller, objective)
 
-    def isPreempted(self):
+    def is_preempted(self):
         return self.id == 0
 
     def eval(self, record):
         if self.id == 1:
             self.id = 0
-        PreemptibleBasicWorkerThread.eval(self, record)
+        return PreemptibleBasicWorkerThread.eval(self, record)
 
 
 def testPreemptibleBasicWorkerThread():
@@ -68,9 +68,10 @@ class TestPreemptibleSimpleSocketWorker(PreemptibleSimpleSocketWorker):
     """
 
     def __init__(self, objective, sockname, retries=0, threadID=0):
-        PreemptibleSimpleSocketWorker.__init__(self, objective, sockname, retries, threadID)
+        self.id = threadID
+        PreemptibleSimpleSocketWorker.__init__(self, objective, sockname, retries)
 
-    def isPreempted(self):
+    def is_preempted(self):
         return self.id == 0
 
     def eval(self, record_id, params):
@@ -78,7 +79,7 @@ class TestPreemptibleSimpleSocketWorker(PreemptibleSimpleSocketWorker):
         time.sleep(1)
         if self.id == 1:
             self.id = 0
-        PreemptibleSimpleSocketWorker.eval(self, record_id, params)
+        return PreemptibleSimpleSocketWorker.eval(self, record_id, params)
 
 
 def testPreemptibleTCPServer():
@@ -117,8 +118,8 @@ def testPreemptibleTCPServer():
 
 def main():
     logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s",
-                        level=logging.INFO)
-    testPreemptibleBasicWorkerThread()
+                        level=logging.DEBUG)
+    # testPreemptibleBasicWorkerThread()
     testPreemptibleTCPServer()
 
 if __name__ == '__main__':

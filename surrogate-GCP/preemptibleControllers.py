@@ -22,7 +22,7 @@ class PreemptibleThreadController(ThreadController):
                 proposal.record = self.new_feval(proposal.args)
                 proposal.record.worker = worker
                 proposal.accept()
-                worker.eval(proposal.record)
+                worker.preemptible_eval(proposal.record)
             else:
                 self._submit_work(proposal)
         except Queue.Empty:
