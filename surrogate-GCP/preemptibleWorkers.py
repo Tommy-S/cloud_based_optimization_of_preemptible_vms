@@ -3,9 +3,9 @@ from poap.tcpserve import SocketWorker, ProcessSocketWorker, SocketWorkerHandler
 import logging
 from threading import Thread, Semaphore
 import time
-import sys
 import socket
 from Queue import Empty
+import traceback
 
 TIMEOUT = 0
 # Get module-level logger
@@ -279,7 +279,7 @@ class PreemptibleSimpleSocketWorker(PreemptibleSocketWorker):
         try:
             msg = ('complete', record_id, self.objective(*params))
         except Exception:
-            logger.error(sys.exc_info()[0])
+            logger.error(traceback.format_exc(5))
             msg = ('cancel', record_id)
         return (self.send,) + msg
 

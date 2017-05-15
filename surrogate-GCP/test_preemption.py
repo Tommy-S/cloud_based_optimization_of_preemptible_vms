@@ -74,12 +74,12 @@ class TestPreemptibleSimpleSocketWorker(PreemptibleSimpleSocketWorker):
     def is_preempted(self):
         return self.id == 0
 
-    def eval(self, record_id, params):
+    def eval(self, record_id, *params):
         logging.debug('Worker {0} starting eval'.format(self.id))
         time.sleep(1)
         if self.id == 1:
             self.id = 0
-        return PreemptibleSimpleSocketWorker.eval(self, record_id, params)
+        return PreemptibleSimpleSocketWorker.eval(self, record_id, *params)
 
 
 def testPreemptibleTCPServer():
