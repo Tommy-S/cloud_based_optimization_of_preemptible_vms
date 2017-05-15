@@ -22,7 +22,7 @@ class PreemptibleThreadController(ThreadController):
                 proposal.record = self.new_feval(proposal.args)
                 proposal.record.worker = worker
                 proposal.accept()
-                worker.preemptible_eval(proposal.record)
+                worker.queue.put(('eval', proposal.record))
             else:
                 self._submit_work(proposal)
         except Queue.Empty:
@@ -56,11 +56,16 @@ class PreemptibleTCPThreadController(ThreadController):
 class PreemptibleThreadedTCPServer(ThreadedTCPServer):
     def __init__(self, sockname=("localhost", 0), strategy=None, handlers={}):
         super(ThreadedTCPServer, self).__init__(sockname, PreemptibleSocketWorkerHandler)
-        handlers['preempted'] = self.handle_preempt
+        handlers['eval_preempted'] = self.handle_eval_preempt
+        handlers['exit_preempted'] = self.handle_exit_preempt
         self.message_handlers = handlers
         self.controller = PreemptibleTCPThreadController()
         self.controller.strategy = strategy
         self.controller.add_term_callback(self.shutdown)
 
-    def handle_preempt(self, record):
+    def handle_eval_preempt(self, record):
         self.controller.add_message(lambda: record.cancel)
+
+    def handle_exit_preempt(self):
+        logger.debug("Server recognizes that worker was preempted")
+        return

@@ -16,7 +16,7 @@ from poap.test.monitor import add_monitor
 def objective(x):
     """Objective function -- run for about five seconds before returning."""
     logging.info("Request for {0}".format(x))
-    time.sleep(5 + random.random())
+    time.sleep(2 + random.random())
     return (x + 1)
 
 

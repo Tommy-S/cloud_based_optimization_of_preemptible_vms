@@ -4,6 +4,8 @@ import logging
 from threading import Thread, Semaphore
 import time
 import sys
+import socket
+from Queue import Empty
 
 TIMEOUT = 0
 # Get module-level logger
@@ -30,12 +32,6 @@ class PreemptibleWorker(object):
 
     def __init__(self):
         """Initialize the PreemptibleWorker."""
-        # True when this worker is running.
-        # Inheriting classes are responsible for marking worker shutdown.
-        # This is intended to be used in gating access to communication with
-        # the controller after worker shutdown.
-        self.running = True
-
         # True when a preemption event has been detected.
         # Should only be modified by the preemption detection thread.
         self.preempted = False
@@ -54,6 +50,7 @@ class PreemptibleWorker(object):
                 time.sleep(1)
             self.preempted = True
             self.killable.release()
+            logger.debug("Worker detected preemption event")
 
         # Detects preemption events. Is a daemon so the worker
         # may shutdown without cleaning up preemption detection
@@ -98,7 +95,7 @@ class PreemptibleWorker(object):
             params: placeholder function signature
                     Must have the same signature as eval.
         """
-        pass
+        return
 
     def preemptible_eval(self, *params):
         """
@@ -179,26 +176,6 @@ class PreemptibleBasicWorkerThread(BasicWorkerThread, PreemptibleWorker):
         """Terminate worker."""
         logger.info("Worker exiting from terminate")
 
-    def add_message(self, message):
-        """
-        Send message to be executed at the controller.
-        Access to add_message is gated by self.running
-        to prevent workers in the process of shutting down
-        from talking to the controller.
-        """
-        if self.running:
-            BasicWorkerThread.add_message(self, message)
-
-    def add_worker(self):
-        """
-        Add worker back to the work queue.
-        Access to add_worker is gated by self.running
-        to prevent a worker in the process of shutting down
-        from adding itself back `to the controller.
-        """
-        if self.running:
-            BasicWorkerThread.add_worker(self)
-
     def run(self):
         """Run requests as long as we get them iff we have not been preempted."""
         while True:
@@ -207,20 +184,23 @@ class PreemptibleBasicWorkerThread(BasicWorkerThread, PreemptibleWorker):
                 self.handle_preempt()
                 return
             else:
-                request = self.queue.get()
-                if request[0] == 'eval':
-                    logger.debug("Worker thread received eval request")
-                    record = request[1]
-                    self.add_message(record.running)
-                    self.preemptible_eval(record)
-                elif request[0] == 'kill':
-                    logger.debug("Worker thread received kill request")
-                    self.handle_kill(request[1])
-                elif request[0] == 'terminate':
-                    logger.debug("Worker thread received terminate request")
-                    self.handle_terminate()
-                    logger.debug("Exit worker thread run()")
-                    return
+                try:
+                    request = self.queue.get(True, 1)
+                    if request[0] == 'eval':
+                        logger.debug("Worker thread received eval request")
+                        record = request[1]
+                        self.add_message(record.running)
+                        self.preemptible_eval(record)
+                    elif request[0] == 'kill':
+                        logger.debug("Worker thread received kill request")
+                        self.handle_kill(request[1])
+                    elif request[0] == 'terminate':
+                        logger.debug("Worker thread received terminate request")
+                        self.handle_terminate()
+                        logger.debug("Exit worker thread run()")
+                        return
+                except Empty:
+                    pass
 
 
 class PreemptibleSocketWorker(SocketWorker, PreemptibleWorker):
@@ -237,19 +217,17 @@ class PreemptibleSocketWorker(SocketWorker, PreemptibleWorker):
         SocketWorker.__init__(self, sockname, retries)
         PreemptibleWorker.__init__(self)
 
-    def send(self, *args):
-        """
-        Send a message back to the controller.
-        Access to send is gated by self.running
-        to prevent workers in the process of shutting down
-        from talking to the controller.
-        """
-        if self.running:
-            SocketWorker.send(self, *args)
+    def handle_preempt(self):
+        """Process preemption."""
+        logger.info("Worker exiting from preemption")
+        self.running = False
+        msg = ('exit_preempted',)
+        self.send(*msg)
 
     def _run(self):
         """Run a message from the controller."""
-        if not self.running:
+        if self.preempted:
+            self.handle_preempt()
             return
         data = self.unmarshall(self.sock.recv(4096))
         if data[0] == 'eval':
@@ -283,9 +261,8 @@ class PreemptibleSimpleSocketWorker(PreemptibleSocketWorker):
         self.objective = objective
 
     def finish_preempted(self, record_id, params):
-        msg = ('preempted', record_id)
+        msg = ('eval_preempted', record_id)
         self.send(*msg)
-        self.running = False
 
     def eval(self, record_id, params):
         """Evaluate the function and send back a result.
@@ -301,8 +278,8 @@ class PreemptibleSimpleSocketWorker(PreemptibleSocketWorker):
         """
         try:
             msg = ('complete', record_id, self.objective(*params))
-        except:
-            logger.debug('EXCEPTION: ' + sys.exc_info()[0])
+        except Exception:
+            logger.error(sys.exc_info()[0])
             msg = ('cancel', record_id)
         return (self.send,) + msg
 
@@ -333,33 +310,38 @@ class PreemptibleProcessSocketWorker(PreemptibleSocketWorker, ProcessSocketWorke
 
     def eval(self, record_id, params):
         """See poap.controller.ProcessSocketWorker for comments."""
-        pass
+        return
 
 
 class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
-    def __init__(self, *args):
-        self.alive = True
-        SocketWorkerHandler.__init__(self, *args)
-
     def _handle_message(self, args):
         """Receive a record status message."""
         mname = args[0]
-        if mname == 'preempted':
-            logger.debug("Handler's Worker was preempted")
-            self.alive = False
-
-        record = self.records[args[1]]
         controller = self.server.controller
-        if mname in self.server.message_handlers:
+        if mname == 'exit_preempted':
+            self.exit_preempted()
             handler = self.server.message_handlers[mname]
-            controller.add_message(lambda: handler(record, *args[2:]))
+            controller.add_message(lambda: handler())
         else:
-            method = getattr(record, mname)
-            controller.add_message(lambda: method(*args[2:]))
-        if mname == 'complete' or mname == 'cancel' or mname == 'kill':
-            if self.alive:
-                logger.debug("Re-queueing worker")
-                controller.add_worker(self)
+            record = self.records[args[1]]
+            if mname in self.server.message_handlers:
+                handler = self.server.message_handlers[mname]
+                controller.add_message(lambda: handler(record, *args[2:]))
+            else:
+                method = getattr(record, mname)
+                controller.add_message(lambda: method(*args[2:]))
+            if mname == 'complete' or mname == 'cancel' or mname == 'kill':
+                if self.running:
+                    logger.debug("Re-queueing worker")
+                    controller.add_worker(self)
+
+    def exit_preempted(self):
+        logger.debug("Handler's Worker was preempted and has shut down")
+        try:
+            self.running = False
+            self.request.close()
+        except socket.error as e:
+            logger.warning("In exit_preempted: {0}".format(e))
 
     def is_alive(self):
-        return self.alive
+        return self.running
