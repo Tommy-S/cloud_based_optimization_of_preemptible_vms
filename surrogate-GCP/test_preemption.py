@@ -33,10 +33,10 @@ class TestPreemptibleBasicWorkerThread(PreemptibleBasicWorkerThread):
     def is_preempted(self):
         return self.id == 0
 
-    def eval(self, record):
+    def _eval(self, record):
         if self.id == 1:
             self.id = 0
-        return PreemptibleBasicWorkerThread.eval(self, record)
+        return PreemptibleBasicWorkerThread._eval(self, record)
 
 
 def testPreemptibleBasicWorkerThread():
@@ -74,12 +74,12 @@ class TestPreemptibleSimpleSocketWorker(PreemptibleSimpleSocketWorker):
     def is_preempted(self):
         return self.id == 0
 
-    def eval(self, record_id, *params):
+    def _eval(self, record_id, *params):
         logging.debug('Worker {0} starting eval'.format(self.id))
         time.sleep(1)
         if self.id == 1:
             self.id = 0
-        return PreemptibleSimpleSocketWorker.eval(self, record_id, *params)
+        return PreemptibleSimpleSocketWorker._eval(self, record_id, *params)
 
 
 def testPreemptibleTCPServer():

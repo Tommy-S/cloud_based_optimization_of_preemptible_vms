@@ -51,7 +51,7 @@ class TestBasicRecoverablePreemptibleWorker(RecoverablePreemptibleMixIn, Preempt
     def is_preempted(self):
         return self.id == 0
 
-    def eval(self, stateLock, state, record):
+    def _eval(self, stateLock, state, record):
         if self.id == 1:
             self.id = 0
         try:
@@ -101,7 +101,7 @@ class TestRecoverablePreemptibleSimpleSocketWorker(RecoverablePreemptibleMixIn, 
     def is_preempted(self):
         return self.id == 0
 
-    def eval(self, stateLock, state, record_id, params):
+    def _eval(self, stateLock, state, record_id, params):
         logging.debug('Worker {0} starting eval'.format(self.id))
         time.sleep(1)
         if self.id == 1:

@@ -25,7 +25,7 @@ class PreemptibleWorker(object):
 
     Inheriting classes need to implement:
     (1) is_preempted(self) : bool
-    (2) eval(self, params) : unit
+    (2) _eval(self, params) : unit
     (3) finish_preempted(self, params) : unit
 
     """
@@ -65,14 +65,14 @@ class PreemptibleWorker(object):
         """
         return False
 
-    def eval(self, *params):
+    def _eval(self, *params):
         """
         Evaluate the optimization function and package the results for handling.
         Should only be called from the preemptible evaluation thread.
-        Eval itself should not communicate with the controller.
+        _eval itself should not communicate with the controller.
         Communication with the controller is done in the function callback that
-        eval returns- this is to prevent interleaving a preemption message into
-        eval completion messages.
+        _eval returns- this is to prevent interleaving a preemption message into
+        _eval completion messages.
 
         Args:
             params: placeholder function signature
@@ -93,7 +93,7 @@ class PreemptibleWorker(object):
 
         Args:
             params: placeholder function signature
-                    Must have the same signature as eval.
+                    Must have the same signature as _eval.
         """
         return
 
@@ -102,10 +102,10 @@ class PreemptibleWorker(object):
         Wrap optimization function evaluation so it can be canceled in case of a preemption event.
 
         Args:
-            params: passed through to eval and finish_preempted
+            params: passed through to _eval and finish_preempted
         """
         def _preemptible_eval(evalResults):
-            evalResults[:] = self.eval(*params)
+            evalResults[:] = self._eval(*params)
             self.killable.release()
 
         evalResults = []
@@ -115,7 +115,7 @@ class PreemptibleWorker(object):
         # DON'T START evalThread UNTIL SEMAPHORE IS ACQUIRED OTHERWISE RACE CONDITION
         evalThread.start()
 
-        # Acquiring happens when one of either preemption detection or eval threads returns
+        # Acquiring happens when one of either preemption detection or _eval threads returns
         self.killable.acquire()
 
         if evalThread.is_alive():
@@ -146,7 +146,7 @@ class PreemptibleBasicWorkerThread(BasicWorkerThread, PreemptibleWorker):
         BasicWorkerThread.__init__(self, controller, objective)
         PreemptibleWorker.__init__(self)
 
-    def eval(self, record):
+    def _eval(self, record):
         """
         Evaluate the optimization function and handle the results.
 
@@ -224,17 +224,16 @@ class PreemptibleSocketWorker(SocketWorker, PreemptibleWorker):
         msg = ('exit_preempted',)
         self.send(*msg)
 
+    def eval(self, record_id, params):
+        self.preemptible_eval(record_id, params)
+
     def _run(self):
         """Run a message from the controller."""
         if self.preempted:
             self.handle_preempt()
             return
-        data = self.unmarshall(self.sock.recv(4096))
-        if data[0] == 'eval':
-            method = getattr(self, 'preemptible_eval')
         else:
-            method = getattr(self, data[0])
-        method(*data[1:])
+            SocketWorker._run(self)
 
 
 class PreemptibleSimpleSocketWorker(PreemptibleSocketWorker):
@@ -264,7 +263,7 @@ class PreemptibleSimpleSocketWorker(PreemptibleSocketWorker):
         msg = ('eval_preempted', record_id)
         self.send(*msg)
 
-    def eval(self, record_id, params):
+    def _eval(self, record_id, params):
         """Evaluate the function and send back a result.
 
         If the function evaluation crashes, we send back a 'cancel'
@@ -308,7 +307,7 @@ class PreemptibleProcessSocketWorker(PreemptibleSocketWorker, ProcessSocketWorke
         PreemptibleSocketWorker.__init__(self, sockname, retries)
         ProcessSocketWorker.__init__(self, sockname, retries)
 
-    def eval(self, record_id, params):
+    def _eval(self, record_id, params):
         """See poap.controller.ProcessSocketWorker for comments."""
         return
 
