@@ -11,6 +11,7 @@ from poap.strategy import FixedSampleStrategy
 from poap.strategy import CheckWorkerStrategy
 from poap.test.monitor import add_monitor
 from poap.controller import ThreadController
+from poap.tcpserve import SocketWorker
 
 logger = logging.getLogger(__name__)
 

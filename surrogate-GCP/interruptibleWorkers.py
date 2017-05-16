@@ -13,6 +13,30 @@ TIMEOUT = 0
 logger = logging.getLogger(__name__)
 
 
+class SimpleWorker(object):
+    def __init__(self, objective):
+        self.objective = objective
+
+
+class ProcessWorker(object):
+    def __init__(self):
+        self.process = None
+
+    def _kill_process(self):
+        if self.process_is_running():
+            logger.debug("ProcessWorker is killing subprocess")
+            self.process.terminate()
+
+    def handle_kill(self):
+        self._kill_process()
+
+    def handle_terminate(self):
+        self._kill_process()
+
+    def process_is_running(self):
+        return self.process is not None and self.process.poll() is None
+
+
 class BaseEventWorker(object):
     """
     Sets up the machinery for pre-emptible workers.
@@ -33,8 +57,6 @@ class BaseEventWorker(object):
 
     def __init__(self):
         """Initialize the EventWorker."""
-        if hasattr(self, '_BaseEventWorkerInit'):
-            return
         self._BaseEventWorkerInit = True
         self.messageQueue = Queue.Queue()
         self.requestQueue = deque()
@@ -65,6 +87,8 @@ class BaseEventWorker(object):
             request = self.requestQueue.popleft()
             if self.can_run_request(request):
                 self.run_request(request)
+            else:
+                self.requestQueue.appendleft(request)
         except IndexError:
             pass
 
@@ -74,17 +98,20 @@ class BaseEventWorker(object):
     def message_self(self, fn, args=[]):
         self.messageQueue.put((fn, args))
 
-    def receive_request(self, timeout=1):
-        return None
+    # def receive_request(self, timeout=1):
+    #     return None
 
-    def examine_incoming_request(self, request):
-        return request
+    # def examine_incoming_request(self, request):
+    #     return request
 
-    def run_request(self, request):
-        return
+    # def run_request(self, request):
+    #     return
+
+    def handle_eval(self, *params):
+        self.evaluate(*params)
 
 
-class BaseEventWorkerThread(BaseEventWorker):
+class BaseEventWorkerThread(BaseWorkerThread):
     """
     Sets up the machinery for pre-emptible workers.
     This class is intended to be used in multiple inheritance
@@ -102,15 +129,8 @@ class BaseEventWorkerThread(BaseEventWorker):
 
     """
 
-    def __init__(self):
-        """Initialize the EventWorker."""
-        BaseEventWorker.__init__(self)
-
-    def run(self, loop=True):
-        "Main loop"
-        self._run()
-        while loop and self.running:
-            self._run()
+    def __init__(self, controller):
+        BaseWorkerThread.__init__(self, controller)
 
     def receive_request(self, timeout=1):
         try:
@@ -145,16 +165,27 @@ class BaseEventWorkerThread(BaseEventWorker):
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
 
 
-class BasicEventWorkerThread(BaseEventWorkerThread, BasicWorkerThread):
+class BasicEventWorkerThread(BaseEventWorker, BaseEventWorkerThread, SimpleWorker):
     def __init__(self, controller, objective):
-        BaseEventWorkerThread.__init__(self)
-        BasicWorkerThread.__init__(self, controller, objective)
+        BaseEventWorkerThread.__init__(self, controller)
+        BaseEventWorker.__init__(self)
+        SimpleWorker.__init__(self, objective)
+
+    def evaluate(self, record):
+        try:
+            value = self.objective(*record.params)
+            self.finish_success(record, value)
+            logger.debug("Worker finished feval successfully")
+        except Exception:
+            self.finish_cancelled(record)
+            logger.debug("Worker feval exited with exception")
 
 
-class EventProcessWorkerThread(BaseEventWorkerThread, ProcessWorkerThread):
+class EventProcessWorkerThread(BaseEventWorkerThread, BaseEventWorker, ProcessWorker):
     def __init__(self, controller):
-        BaseEventWorkerThread.__init__(self)
-        ProcessWorkerThread.__init__(self, controller)
+        BaseEventWorkerThread.__init__(self, controller)
+        BaseEventWorker.__init__(self)
+        ProcessWorker.__init__(self)
 
     def process_is_running(self):
         return self.process is not None and self.process.poll() is None
@@ -188,7 +219,7 @@ class BaseInterruptibleWorker(BaseEventWorker):
         self.evalParams = None
         self.evalThread = Thread(target=lambda: None)
 
-    def _eval(self, *params):
+    def evaluate(self, *params):
         """
         Evaluate the optimization function and package the results for handling.
         Should only be called from the preemptible evaluation thread.
@@ -208,7 +239,7 @@ class BaseInterruptibleWorker(BaseEventWorker):
         """
         return (lambda: None,)
 
-    def interruptible_eval(self, *params):
+    def handle_eval(self, *params):
         """
         Wrap optimization function evaluation so it can be canceled in case of an interruption.
 
@@ -218,13 +249,13 @@ class BaseInterruptibleWorker(BaseEventWorker):
         self.evalParams = params
         self.evaluating = True
 
-        def _interruptible_eval(evalResults):
-            evalResults[:] = self._eval(*params)
+        def interruptible_eval(evalResults):
+            evalResults[:] = self.evaluate(*params)
             if self.evaluating:
                 self.message_self(evalResults[0], evalResults[1:])
 
         evalResults = []
-        evalThread = Thread(target=_interruptible_eval, args=(evalResults,))
+        evalThread = Thread(target=interruptible_eval, args=(evalResults,))
         evalThread.daemon = True
         evalThread.start()
 
@@ -239,26 +270,32 @@ class BaseInterruptibleWorker(BaseEventWorker):
             self.finish_killed(evalParams)
 
 
-class BaseInterruptibleEventWorkerThread(BaseInterruptibleWorker, BaseEventWorkerThread):
+class BaseInterruptibleWorkerThread(BaseInterruptibleWorker, BaseEventWorkerThread):
     def __init__(self, controller):
         """Initialize the EventWorker."""
         BaseInterruptibleWorker.__init__(self)
-        BaseEventWorkerThread.__init__(self)
+        BaseEventWorkerThread.__init__(self, controller)
 
 
-class BasicInterruptibleWorkerThread(BaseInterruptibleEventWorkerThread, BasicWorkerThread):
+class BasicInterruptibleWorkerThread(BaseInterruptibleWorkerThread, SimpleWorker):
     def __init__(self, controller, objective):
-        BaseInterruptibleEventWorkerThread.__init__(self, controller)
-        BasicWorkerThread.__init__(self, controller, objective)
+        BaseInterruptibleWorkerThread.__init__(self, controller)
+        SimpleWorker.__init__(self, objective)
+
+    def evaluate(self, record):
+        try:
+            value = self.objective(*record.params)
+            logger.debug("Worker finished feval successfully")
+            return [self.finish_success, record, value]
+        except Exception:
+            logger.debug("Worker feval exited with exception")
+            return [self.finish_cancelled, record]
 
 
-class InterruptibleEventProcessWorkerThread(BaseInterruptibleEventWorkerThread, ProcessWorkerThread):
+class InterruptibleEventProcessWorkerThread(BaseInterruptibleWorkerThread, ProcessWorker):
     def __init__(self, controller):
-        BaseInterruptibleEventWorkerThread.__init__(self, controller)
-        ProcessWorkerThread.__init__(self, controller)
-
-    def process_is_running(self):
-        return self.process is not None and self.process.poll() is None
+        BaseInterruptibleWorkerThread.__init__(self)
+        ProcessWorker.__init__(self)
 
     def can_run_request(self, request):
-        return not self.process_is_running() and BaseInterruptibleEventWorkerThread.can_run_request(self, request)
+        return not self.process_is_running() and BaseInterruptibleWorkerThread.can_run_request(self, request)
