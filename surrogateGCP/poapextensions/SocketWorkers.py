@@ -5,7 +5,7 @@ from surrogateGCP.poapextensions.BaseWorkerTypes import (
     BasePreemptibleWorker,
 )
 import logging
-import select
+import socket
 
 # Get module-level logger
 logger = logging.getLogger(__name__)
@@ -16,12 +16,15 @@ class SocketWorker(_SocketWorker):
         _SocketWorker.__init__(self, sockname, retries)
 
     def receive_request(self, timeout=1):
-        ready = select.select([self.sock], [], [], timeout)
-        if ready[0]:
+        prevtimeout = self.sock.gettimeout()
+        self.sock.settimeout(timeout)
+        try:
             data = self.sock.recv(4096)
             return self.unmarshall(data)
-        else:
+        except socket.timeout:
             return None
+        finally:
+            self.sock.settimeout(prevtimeout)
 
     def examine_incoming_request(self, request):
         if request is None:

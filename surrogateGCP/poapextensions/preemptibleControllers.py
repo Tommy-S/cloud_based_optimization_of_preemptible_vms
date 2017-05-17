@@ -64,6 +64,7 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
         self.controller = PreemptibleTCPThreadController()
         self.controller.strategy = strategy
         self.controller.add_term_callback(self.shutdown)
+        # self.daemon_threads = True
 
     def handle_eval_preempt(self, record):
         self.controller.add_message(lambda: record.cancel)

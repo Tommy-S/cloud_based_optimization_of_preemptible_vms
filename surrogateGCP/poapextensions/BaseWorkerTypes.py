@@ -34,6 +34,8 @@ class BaseEventWorker(object):
     def run(self, loop=True):
         """Main loop."""
         self.running = True
+        if hasattr(self, 'setname'):
+            self.setname('ThreadWorker')
         self._run()
         while loop and self.running:
             self._run()
@@ -150,7 +152,7 @@ class BaseInterruptibleWorker(BaseEventWorker):
                 self.message_self(finish_eval)
 
         evalResults = []
-        evalThread = Thread(target=interruptible_eval, args=(evalResults,))
+        evalThread = Thread(target=interruptible_eval, args=(evalResults,), name='EvalThread')
         evalThread.daemon = True
         evalThread.start()
         logger.debug("Exiting interruptible_eval")

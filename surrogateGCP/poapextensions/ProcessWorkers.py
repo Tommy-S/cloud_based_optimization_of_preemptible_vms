@@ -58,3 +58,21 @@ class ProcessPreemptibleThreadWorker(ProcessEvaluator, PreemptibleThreadWorker):
     def __init__(self, controller):
         ProcessEvaluator.__init__(self, PreemptibleThreadWorker)
         PreemptibleThreadWorker.__init__(self)
+
+
+class ProcessEventSocketWorker(ProcessEvaluator, EventSocketWorker):
+    def __init(self, sockname, retries=0):
+        ProcessEvaluator.__init__(self)
+        EventSocketWorker.__init__(self, sockname, retries)
+
+
+class ProcessInterruptibleSocketWorker(ProcessEvaluator, InterruptibleSocketWorker):
+    def __init(self, sockname, retries=0):
+        ProcessEvaluator.__init__(self)
+        InterruptibleSocketWorker.__init__(self, sockname, retries)
+
+
+class ProcessPreemptibleSocketWorker(ProcessEvaluator, PreemptibleSocketWorker):
+    def __init(self, sockname, retries=0):
+        ProcessEvaluator.__init__(self)
+        PreemptibleSocketWorker.__init__(self, sockname, retries)
