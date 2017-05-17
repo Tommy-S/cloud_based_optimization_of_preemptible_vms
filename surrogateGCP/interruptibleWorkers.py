@@ -1,14 +1,12 @@
-from poap.controller import BasicWorkerThread, BaseWorkerThread, ProcessWorkerThread
-from poap.tcpserve import SocketWorker, ProcessSocketWorker, SocketWorkerHandler
+from poap.controller import BaseWorkerThread as _BaseWorkerThread
+from poap.tcpserve import SocketWorker
 import logging
 from threading import Thread
-import socket
 import Queue
-import traceback
-import sys
 from collections import deque
+import select
+import traceback
 
-TIMEOUT = 0
 # Get module-level logger
 logger = logging.getLogger(__name__)
 
@@ -19,7 +17,8 @@ class SimpleWorker(object):
 
 
 class ProcessWorker(object):
-    def __init__(self):
+    def __init__(self, workerType):
+        self.workerType = workerType
         self.process = None
 
     def _kill_process(self):
@@ -27,14 +26,23 @@ class ProcessWorker(object):
             logger.debug("ProcessWorker is killing subprocess")
             self.process.terminate()
 
-    def handle_kill(self):
+    def handle_kill(self, *args):
         self._kill_process()
+        self.workerType.handle_kill(self, *args)
 
-    def handle_terminate(self):
+    def handle_terminate(self, *args):
         self._kill_process()
+        self.workerType.handle_terminate(self, *args)
+
+    def finish_preempted(self, *args):
+        self._kill_process()
+        self.workerType.finish_preempted(self, *args)
 
     def process_is_running(self):
         return self.process is not None and self.process.poll() is None
+
+    def can_run_request(self, request):
+        return not self.process_is_running() and self.workerType.can_run_request(self, request)
 
 
 class BaseEventWorker(object):
@@ -58,7 +66,7 @@ class BaseEventWorker(object):
     def __init__(self):
         """Initialize the EventWorker."""
         self._BaseEventWorkerInit = True
-        self.messageQueue = Queue.Queue()
+        self.messageQueue = deque()
         self.requestQueue = deque()
         self.running = False
 
@@ -68,18 +76,27 @@ class BaseEventWorker(object):
         self._run()
         while loop and self.running:
             self._run()
+        logger.info("Worker exiting run()")
 
     def _run(self):
-        for _ in range(self.messageQueue.qsize()):
+        for _ in range(len(self.messageQueue)):
+            if not self.running:
+                return
             try:
-                handler = self.messageQueue.get_nowait()
+                handler = self.messageQueue.popleft()
                 method = handler[0]
                 args = handler[1]
                 method(*args)
-            except Queue.Empty:
+            except IndexError:
+                logger.debug("IndexError")
                 pass
 
+        if not self.running:
+            return
+
         request = self.examine_incoming_request(self.receive_request())
+        if not self.running:
+            return
         if request is not None:
             self.requestQueue.append(request)
 
@@ -92,11 +109,8 @@ class BaseEventWorker(object):
         except IndexError:
             pass
 
-    def can_run_request(self, request):
-        return True
-
     def message_self(self, fn, args=[]):
-        self.messageQueue.put((fn, args))
+        self.messageQueue.append((fn, args))
 
     # def receive_request(self, timeout=1):
     #     return None
@@ -111,7 +125,7 @@ class BaseEventWorker(object):
         self.evaluate(*params)
 
 
-class BaseEventWorkerThread(BaseWorkerThread):
+class BaseWorkerThread(_BaseWorkerThread):
     """
     Sets up the machinery for pre-emptible workers.
     This class is intended to be used in multiple inheritance
@@ -130,7 +144,7 @@ class BaseEventWorkerThread(BaseWorkerThread):
     """
 
     def __init__(self, controller):
-        BaseWorkerThread.__init__(self, controller)
+        _BaseWorkerThread.__init__(self, controller)
 
     def receive_request(self, timeout=1):
         try:
@@ -149,11 +163,12 @@ class BaseEventWorkerThread(BaseWorkerThread):
         elif request[0] == 'terminate':
             logger.debug("Worker thread received terminate request")
             self.message_self(self.handle_terminate)
-            logger.debug("Exit worker thread run()")
-            self.running = False
             return None
         else:
             return request
+
+    def handle_terminate(self):
+        self.running = False
 
     def run_request(self, request):
         if request[0] == 'eval':
@@ -165,11 +180,19 @@ class BaseEventWorkerThread(BaseWorkerThread):
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
 
 
-class BasicEventWorkerThread(BaseEventWorker, BaseEventWorkerThread, SimpleWorker):
-    def __init__(self, controller, objective):
-        BaseEventWorkerThread.__init__(self, controller)
+class BaseEventWorkerThread(BaseEventWorker, BaseWorkerThread):
+    def __init__(self, controller):
         BaseEventWorker.__init__(self)
+        BaseWorkerThread.__init__(self, controller)
+
+    def can_run_request(self, request):
+        return True
+
+
+class SimpleEventWorkerThread(SimpleWorker, BaseEventWorkerThread):
+    def __init__(self, controller, objective):
         SimpleWorker.__init__(self, objective)
+        BaseEventWorkerThread.__init__(self, controller)
 
     def evaluate(self, record):
         try:
@@ -181,17 +204,74 @@ class BasicEventWorkerThread(BaseEventWorker, BaseEventWorkerThread, SimpleWorke
             logger.debug("Worker feval exited with exception")
 
 
-class EventProcessWorkerThread(BaseEventWorkerThread, BaseEventWorker, ProcessWorker):
+class ProcessEventWorkerThread(ProcessWorker, BaseEventWorkerThread, BaseEventWorker):
     def __init__(self, controller):
+        ProcessWorker.__init__(self, BaseEventWorkerThread)
         BaseEventWorkerThread.__init__(self, controller)
         BaseEventWorker.__init__(self)
-        ProcessWorker.__init__(self)
 
-    def process_is_running(self):
-        return self.process is not None and self.process.poll() is None
+
+class BaseSocketWorker(SocketWorker):
+    def __init__(self, sockname, retries=0):
+        SocketWorker.__init__(self, sockname, retries)
+
+    def receive_request(self, timeout=1):
+        ready = select.select([self.sock], [], [], timeout)
+        if ready[0]:
+            data = self.sock.recv(4096)
+            return self.unmarshall(data)
+        else:
+            return None
+
+    def examine_incoming_request(self, request):
+        if request is None:
+            return None
+        elif request[0] == 'kill':
+            logger.debug("Worker thread received kill request")
+            self.message_self(self.handle_kill, *request[1:])
+            return None
+        elif request[0] == 'terminate':
+            logger.debug("Worker thread received terminate request")
+            self.message_self(self.handle_terminate)
+            return None
+        else:
+            return request
+
+    def handle_terminate(self):
+        self.running = False
+
+    def run_request(self, request):
+        if request[0] == 'eval':
+            logger.debug("Worker thread received eval request")
+            record_id = request[1]
+            args = request[2:]
+            self.handle_eval(record_id, *args)
+        else:
+            logger.warning("Worker received unrecognized request: {0}".format(request[0]))
+
+
+class BaseEventSocketWorker(BaseEventWorker, BaseSocketWorker):
+    def __init__(self, sockname, retries=0):
+        BaseEventWorker.__init__(self)
+        BaseSocketWorker.__init__(self, sockname, retries)
 
     def can_run_request(self, request):
-        return not self.process_is_running()
+        return True
+
+
+class SimpleEventSocketWorker(SimpleWorker, BaseEventSocketWorker):
+    def __init__(self, objective, sockname, retries=0):
+        SimpleWorker.__init__(self, objective)
+        BaseEventSocketWorker.__init__(self, sockname, retries)
+
+    def evaluate(self, record_id, params):
+        try:
+            msg = ('complete', record_id, self.objective(*params))
+        except Exception:
+            logger.error(traceback.format_exc(5))
+            msg = ('cancel', record_id)
+        logger.debug("SENDING: {0}".format(msg))
+        self.send(*msg)
 
 
 class BaseInterruptibleWorker(BaseEventWorker):
@@ -252,12 +332,16 @@ class BaseInterruptibleWorker(BaseEventWorker):
         def interruptible_eval(evalResults):
             evalResults[:] = self.evaluate(*params)
             if self.evaluating:
-                self.message_self(evalResults[0], evalResults[1:])
+                def finish_eval():
+                    evalResults[0](*evalResults[1:])
+                    self.evaluating = False
+                self.message_self(finish_eval)
 
         evalResults = []
         evalThread = Thread(target=interruptible_eval, args=(evalResults,))
         evalThread.daemon = True
         evalThread.start()
+        logger.debug("Exiting interruptible_eval")
 
     def can_run_request(self, request):
         return not self.evaluating and not self.evalThread.isAlive()
@@ -277,10 +361,10 @@ class BaseInterruptibleWorkerThread(BaseInterruptibleWorker, BaseEventWorkerThre
         BaseEventWorkerThread.__init__(self, controller)
 
 
-class BasicInterruptibleWorkerThread(BaseInterruptibleWorkerThread, SimpleWorker):
+class SimpleInterruptibleWorkerThread(SimpleWorker, BaseInterruptibleWorkerThread):
     def __init__(self, controller, objective):
-        BaseInterruptibleWorkerThread.__init__(self, controller)
         SimpleWorker.__init__(self, objective)
+        BaseInterruptibleWorkerThread.__init__(self, controller)
 
     def evaluate(self, record):
         try:
@@ -292,10 +376,29 @@ class BasicInterruptibleWorkerThread(BaseInterruptibleWorkerThread, SimpleWorker
             return [self.finish_cancelled, record]
 
 
-class InterruptibleEventProcessWorkerThread(BaseInterruptibleWorkerThread, ProcessWorker):
+class ProcessInterruptibleWorkerThread(ProcessWorker, BaseInterruptibleWorkerThread):
     def __init__(self, controller):
+        ProcessWorker.__init__(self, BaseInterruptibleWorkerThread)
         BaseInterruptibleWorkerThread.__init__(self)
-        ProcessWorker.__init__(self)
 
-    def can_run_request(self, request):
-        return not self.process_is_running() and BaseInterruptibleWorkerThread.can_run_request(self, request)
+
+class BaseInterruptibleSocketWorker(BaseInterruptibleWorker, BaseEventSocketWorker):
+    def __init__(self, sockname, retries=0):
+        """Initialize the EventWorker."""
+        BaseInterruptibleWorker.__init__(self)
+        BaseEventSocketWorker.__init__(self, sockname, retries)
+
+
+class SimpleInterruptibleSocketWorker(SimpleWorker, BaseInterruptibleSocketWorker):
+    def __init__(self, objective, sockname, retries=0):
+        SimpleWorker.__init__(self, objective)
+        BaseInterruptibleSocketWorker.__init__(self, sockname, retries)
+
+    def evaluate(self, record_id, params):
+        try:
+            msg = ('complete', record_id, self.objective(*params))
+        except Exception:
+            logger.error(traceback.format_exc(5))
+            msg = ('cancel', record_id)
+        logger.debug("SENDING: {0}".format(msg))
+        return (self.send,) + msg

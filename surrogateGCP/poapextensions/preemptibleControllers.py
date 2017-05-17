@@ -1,6 +1,8 @@
 from poap.controller import ThreadController
 from poap.tcpserve import ThreadedTCPServer
-from preemptibleWorkers import PreemptibleSocketWorkerHandler
+from surrogateGCP.poapextensions.SocketWorkerHandlers import (
+    PreemptibleSocketWorkerHandler,
+)
 try:
     import Queue
 except ImportError:
