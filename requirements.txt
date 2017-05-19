@@ -1,3 +1,2 @@
---upgrade  --user
-google-api-python-client
+--upgrade google-api-python-client
 https://github.com/dbindel/POAP
