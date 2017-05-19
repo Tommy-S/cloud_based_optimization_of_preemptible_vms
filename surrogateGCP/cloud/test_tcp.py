@@ -41,10 +41,10 @@ def main():
 
     # Launch workers
     wthreads = []
-    # for k in range(2):
-    #     wthread = threading.Thread(target=worker_main, args=(name,))
-    #     wthread.start()
-    #     wthreads.append(wthread)
+    for k in range(2):
+        wthread = threading.Thread(target=worker_main, args=(name,))
+        wthread.start()
+        wthreads.append(wthread)
 
     # Wait on controller and workers
     cthread.join()

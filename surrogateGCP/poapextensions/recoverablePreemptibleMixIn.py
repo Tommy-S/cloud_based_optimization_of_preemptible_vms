@@ -13,15 +13,17 @@ class RecoverablePreemptibleMixIn(object):
         self.lockClass = lockClass
         self.stateClass = stateClass
 
-    def preemptible_eval(self, *params):
+    def handle_eval(self, *params):
         stateLock = self.lockClass()
         state = self.stateClass()
-        self.workerClass.preemptible_eval(self, stateLock, state, *params)
+        self.workerClass.handle_eval(self, *(params + (stateLock, state)))
         stateLock.cleanup()
         state.cleanup()
 
-    def finish_preempted(self, stateLock, state, *params):
+    def finish_preempted(self, *params):
         saved = False
+        stateLock = params[-2]
+        state = params[-1]
 
         try:
             if stateLock.acquire(False):
@@ -32,17 +34,20 @@ class RecoverablePreemptibleMixIn(object):
             logger.error(traceback.format_exc())
 
         if saved:
-            self.preempt_with_state_saved(savedStateInfo, *params)
+            self.finish_preempted_state_saved(savedStateInfo, *params)
         else:
-            self.preempt_with_state_unsaved(*params)
+            self.finish_preempted_state_unsaved(*params)
 
-    def preempt_with_state_saved(self, savedStateInfo, *params):
+    def finish_preempted_state_saved(self, savedStateInfo, *params):
         logger.debug("Preempt with state saved")
         self.workerClass.finish_preempted(self, *params)
 
-    def preempt_with_state_unsaved(self, *params):
+    def finish_preempted_state_unsaved(self, *params):
         logger.debug("Preempt with state unsaved")
         self.workerClass.finish_preempted(self, *params)
+
+    def handle_kill(self, *params):
+        self.workerClass.handle_kill(*params[:-2])
 
 
 class BasicLock(object):

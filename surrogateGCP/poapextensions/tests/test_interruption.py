@@ -15,6 +15,8 @@ import sys
 Test fixed sampling strategy.
 """
 
+import socket
+import errno
 import time
 import random
 from poap.strategy import FixedSampleStrategy
@@ -71,7 +73,25 @@ def testSimpleSocketWorkerEvaluation(socketWorker):
     # Launch controller
     samples = [0.0]
     strategy = FixedSampleStrategy(samples)
-    server = PreemptibleThreadedTCPServer(strategy=strategy)
+    hostip = socket.gethostbyname(socket.gethostname())
+
+    port = 50000
+    portopen = False
+    while not portopen and port < 60000:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind((hostip, port))
+            s.close()
+            portopen = True
+            logger.debug("Port open")
+        except socket.error as error:
+            if not error.errno == errno.EADDRINUSE:
+                raise
+            else:
+                logger.debug("Port closed")
+                port += 1
+    name = (hostip, port)
+    server = PreemptibleThreadedTCPServer(sockname=name, strategy=strategy)
     cthread = threading.Thread(target=server.run, name='Server for {0}'.format(socketWorker.__name__))
     cthread.start()
 
