@@ -1,2 +1,2 @@
 google-api-python-client
-https://github.com/dbindel/POAP
+git+https://github.com/dbindel/POAP.git
