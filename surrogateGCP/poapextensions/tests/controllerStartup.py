@@ -3,6 +3,7 @@ import logging
 import threading
 import socket
 import errno
+import urllib2
 
 from poap.strategy import FixedSampleStrategy
 
@@ -28,7 +29,8 @@ def main():
     # Launch controller
     samples = [0.0, 0.1]
     strategy = FixedSampleStrategy(samples)
-    hostip = socket.gethostbyname(socket.gethostname())
+    # hostip = socket.gethostbyname(socket.gethostname())
+    hostip = urllib2.urlopen('http://ip.42.pl/raw').read()
 
     port = 50000
     portopen = False
