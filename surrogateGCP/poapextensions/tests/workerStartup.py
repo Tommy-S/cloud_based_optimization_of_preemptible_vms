@@ -40,6 +40,7 @@ def main():
     name = NAME
 
     # Launch worker
+    print(NAME)
     TestSimpleGCPPreemptibleSocketWorker(f, sockname=name, retries=1).run()
 
     print("Worker done")

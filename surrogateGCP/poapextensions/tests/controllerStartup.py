@@ -52,7 +52,7 @@ def main():
 
     # Get controller port
     name = server.sockname
-    logging.debug("Launch controller at {0}".format(name))
+    logging.info("Launch controller at {0}".format(name))
 
     # Wait on controller
     cthread.join()
