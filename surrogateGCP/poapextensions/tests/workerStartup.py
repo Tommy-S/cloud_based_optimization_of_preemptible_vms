@@ -25,7 +25,7 @@ def f(x):
 
 class TestSimpleGCPPreemptibleSocketWorker(SimpleGCPPreemptibleSocketWorker):
     def __init__(self, objective, sockname, retries=0):
-        SimpleGCPPreemptibleSocketWorker.__init__(self, sockname, retries)
+        SimpleGCPPreemptibleSocketWorker.__init__(self, f, sockname, retries)
 
     def evaluate(self, record_id, params):
         raw_input("Hit enter to start evaluation")
@@ -41,13 +41,12 @@ def main():
 
     # Launch worker
     print(NAME)
-    TestSimpleGCPPreemptibleSocketWorker(f, sockname=name, retries=1).run()
+    TestSimpleGCPPreemptibleSocketWorker(f, name, 1).run()
 
     print("Worker done")
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        TIMEOUT = float(sys.argv[1])
-        NAME = (sys.argv[2], int(sys.argv[3]))
+        NAME = (sys.argv[1], int(sys.argv[2]))
     main()
