@@ -40,7 +40,7 @@ def list_instances(compute, project, zone):
 def create_instance(compute, project, zone, name, bucket):
     # Get the latest Debian Jessie image.
     image_response = compute.images().getFromFamily(
-        project='debian-cloud', family='debian-8').execute()
+        project='bustling-syntax-160718', family='poap-debian').execute()
     source_disk_image = image_response['selfLink']
 
     # Configure the machine
@@ -48,12 +48,13 @@ def create_instance(compute, project, zone, name, bucket):
     startup_script = open(
         os.path.join(
             os.path.dirname(__file__), 'startup-script.sh'), 'r').read()
-    image_url = "http://storage.googleapis.com/gce-demo-input/photo.jpg"
-    image_caption = "Ready for dessert?"
 
     config = {
         'name': name,
         'machineType': machine_type,
+        'scheduling': {
+            'preemptible': True
+        },
 
         # Specify the boot disk and the image to use as a source.
         'disks': [
@@ -92,12 +93,6 @@ def create_instance(compute, project, zone, name, bucket):
                 # instance upon startup.
                 'key': 'startup-script',
                 'value': startup_script
-            }, {
-                'key': 'url',
-                'value': image_url
-            }, {
-                'key': 'text',
-                'value': image_caption
             }, {
                 'key': 'bucket',
                 'value': bucket

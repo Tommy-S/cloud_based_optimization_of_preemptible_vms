@@ -3,6 +3,7 @@ from surrogateGCP.poapextensions.BaseWorkerTypes import (
     BaseEventWorker,
     BaseInterruptibleWorker,
     BasePreemptibleWorker,
+    BaseGCPPreemptibleWorker,
 )
 import logging
 import socket
@@ -72,6 +73,21 @@ class InterruptibleSocketWorker(BaseInterruptibleWorker, EventSocketWorker):
 class PreemptibleSocketWorker(BasePreemptibleWorker, EventSocketWorker):
     def __init__(self, sockname, retries=0):
         BasePreemptibleWorker.__init__(self)
+        EventSocketWorker.__init__(self, sockname, retries)
+
+    def finish_preempted(self, record_id, params):
+        msg = ('eval_preempted', record_id)
+        self.send(*msg)
+        logger.debug("Feval preempted")
+
+    def preempt(self):
+        msg = ('exit_preempted',)
+        self.send(*msg)
+
+
+class GCPPreemptibleSocketWorker(BaseGCPPreemptibleWorker, EventSocketWorker):
+    def __init__(self, sockname, retries=0):
+        BaseGCPPreemptibleWorker.__init__(self)
         EventSocketWorker.__init__(self, sockname, retries)
 
     def finish_preempted(self, record_id, params):

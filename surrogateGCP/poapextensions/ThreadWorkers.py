@@ -3,6 +3,7 @@ from surrogateGCP.poapextensions.BaseWorkerTypes import (
     BaseEventWorker,
     BaseInterruptibleWorker,
     BasePreemptibleWorker,
+    BaseGCPPreemptibleWorker,
 )
 import logging
 import Queue
@@ -86,6 +87,17 @@ class PreemptibleThreadWorker(BasePreemptibleWorker, ThreadWorker):
     def __init__(self, controller):
         """Initialize the EventWorker."""
         BasePreemptibleWorker.__init__(self)
+        ThreadWorker.__init__(self, controller)
+
+    def finish_preempted(self, record):
+        logger.debug("Feval preempted")
+        self.add_message(record.cancel)
+
+
+class GCPPreemptibleThreadWorker(BaseGCPPreemptibleWorker, ThreadWorker):
+    def __init__(self, controller):
+        """Initialize the EventWorker."""
+        BaseGCPPreemptibleWorker.__init__(self)
         ThreadWorker.__init__(self, controller)
 
     def finish_preempted(self, record):

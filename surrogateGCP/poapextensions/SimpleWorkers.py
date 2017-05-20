@@ -7,6 +7,7 @@ from surrogateGCP.poapextensions.SocketWorkers import (
     EventSocketWorker,
     InterruptibleSocketWorker,
     PreemptibleSocketWorker,
+    GCPPreemptibleSocketWorker,
 )
 import logging
 
@@ -88,6 +89,15 @@ class SimplePreemptibleSocketWorker(SimpleEvaluator, PreemptibleSocketWorker):
     def __init__(self, objective, sockname, retries=0):
         SimpleEvaluator.__init__(self, objective)
         PreemptibleSocketWorker.__init__(self, sockname, retries)
+
+    def evaluate(self, record_id, params):
+        return simple_socket_evaluate(self, record_id, params)
+
+
+class SimpleGCPPreemptibleSocketWorker(SimpleEvaluator, GCPPreemptibleSocketWorker):
+    def __init__(self, objective, sockname, retries=0):
+        SimpleEvaluator.__init__(self, objective)
+        GCPPreemptibleSocketWorker.__init__(self, sockname, retries)
 
     def evaluate(self, record_id, params):
         return simple_socket_evaluate(self, record_id, params)
