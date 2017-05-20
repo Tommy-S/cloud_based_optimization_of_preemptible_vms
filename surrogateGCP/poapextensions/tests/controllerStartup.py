@@ -29,8 +29,8 @@ def main():
     # Launch controller
     samples = [0.0, 0.1]
     strategy = FixedSampleStrategy(samples)
-    # hostip = socket.gethostbyname(socket.gethostname())
-    hostip = urllib2.urlopen('http://ip.42.pl/raw').read()
+    hostip = socket.gethostbyname(socket.gethostname())
+    publicip = urllib2.urlopen('http://ip.42.pl/raw').read()
 
     port = 50000
     portopen = False
@@ -54,7 +54,7 @@ def main():
 
     # Get controller port
     name = server.sockname
-    logging.info("Launch controller at {0}".format(name))
+    logging.info("Launch controller at {0}".format((publicip, port)))
 
     # Wait on controller
     cthread.join()
