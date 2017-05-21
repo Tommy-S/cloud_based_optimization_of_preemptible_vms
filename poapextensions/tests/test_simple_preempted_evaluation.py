@@ -1,13 +1,8 @@
-from surrogateGCP.poapextensions.SimpleWorkers import (
-    SimpleEventThreadWorker,
-    SimpleInterruptibleThreadWorker,
+from poapextensions.SimpleWorkers import (
     SimplePreemptibleThreadWorker,
-    SimpleEventSocketWorker,
-    SimpleInterruptibleSocketWorker,
     SimplePreemptibleSocketWorker,
 )
-from surrogateGCP.poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer
-from poap.tcpserve import ThreadedTCPServer
+from poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer, PreemptibleThreadController
 import threading
 import logging
 import sys
@@ -22,42 +17,73 @@ import random
 from poap.strategy import FixedSampleStrategy
 from poap.strategy import CheckWorkerStrategy
 from poap.test.monitor import add_monitor
-from poap.controller import ThreadController
 
 logger = logging.getLogger(__name__)
 
 
 def objective(x):
     """Objective function -- run for about five seconds before returning."""
-    logger.info("Request for {0}".format(x))
+    logging.info("Request for {0}".format(x))
     time.sleep(2 + random.random())
     return (x + 1)
 
+
+class PreemptionTestMixIn(object):
+    """
+    Add a controllable preemption system to a PreemptibleBasicWorkerThread.
+    This is only for unit-testing purposes.
+    """
+
+    def __init__(self, threadID, workerClass):
+        self.id = threadID
+        self.workerClass = workerClass
+
+    def is_preempted(self):
+        return self.id == 0
+
+    def evaluate(self, *params):
+        if self.id == 1:
+            self.id = 0
+        return self.workerClass.evaluate(self, *params)
+
+
+class TestSimplePreemptibleThreadWorker(PreemptionTestMixIn, SimplePreemptibleThreadWorker):
+    def __init__(self, threadID, controller, objective):
+        PreemptionTestMixIn.__init__(self, threadID, SimplePreemptibleThreadWorker)
+        SimplePreemptibleThreadWorker.__init__(self, controller, objective)
+
+
+class TestSimplePreemptibleSocketWorker(PreemptionTestMixIn, SimplePreemptibleSocketWorker):
+    def __init__(self, threadID, objective, sockname, retries=0):
+        PreemptionTestMixIn.__init__(self, threadID, SimplePreemptibleSocketWorker)
+        SimplePreemptibleSocketWorker.__init__(self, objective, sockname, retries)
+
 simple_thread_workers = (
-    SimpleEventThreadWorker,
-    SimpleInterruptibleThreadWorker,
-    SimplePreemptibleThreadWorker,
+    TestSimplePreemptibleThreadWorker,
 )
 
 simple_socket_workers = (
-    SimpleEventSocketWorker,
-    SimpleInterruptibleSocketWorker,
-    SimplePreemptibleSocketWorker,
+    TestSimplePreemptibleSocketWorker,
 )
 
 
-def testSimpleThreadWorkerEvaluation(threadWorker):
+def testSimpleThreadWorkerPreemption(threadWorker):
     """Testing routine."""
-    print('<<<<<<<<<<<<<<<<<<<<  Testing Evaluation on {0}  >>>>>>>>>>>>>>>>>>>'.format(threadWorker.__name__))
-    samples = [0.0]
-    controller = ThreadController()
+    print('<<<<<<<<<<<<<<<<<<<<  Testing Preemption on {0}  >>>>>>>>>>>>>>>>>>>'.format(threadWorker.__name__))
+    samples = [0.0, 0.1]
+    controller = PreemptibleThreadController()
     strategy = FixedSampleStrategy(samples)
     strategy = CheckWorkerStrategy(controller, strategy)
     controller.strategy = strategy
     add_monitor(controller, 1)
 
-    for threadID in range(1):
-        controller.launch_worker(SimpleEventThreadWorker(controller, objective))
+    for threadID in range(4):
+        """
+        Worker 0 will be pre-empted as soon as it is launched.
+        Worker 1 will be pre-empted as soon as an eval is launched.
+        Workers 2 and 3 will execute the requests.
+        """
+        controller.launch_worker(threadWorker(threadID, controller, objective))
 
     result = controller.run()
     if result.value == 1:
@@ -67,11 +93,11 @@ def testSimpleThreadWorkerEvaluation(threadWorker):
         print("Final: {0:.3e} @ {1}".format(result.value, result.params))
 
 
-def testSimpleSocketWorkerEvaluation(socketWorker):
+def testSimpleSocketWorkerPreemption(socketWorker):
     """Testing routine."""
-    print('<<<<<<<<<<<<<<<<<<<<  Testing Evaluation on {0}  >>>>>>>>>>>>>>>>>>>'.format(socketWorker.__name__))
+    print('<<<<<<<<<<<<<<<<<<<<  Testing Preemption on {0}  >>>>>>>>>>>>>>>>>>>'.format(socketWorker.__name__))
     # Launch controller
-    samples = [0.0]
+    samples = [0.0, 0.1]
     strategy = FixedSampleStrategy(samples)
     hostip = socket.gethostbyname(socket.gethostname())
 
@@ -102,12 +128,16 @@ def testSimpleSocketWorkerEvaluation(socketWorker):
     # Launch workers
     def worker_main(name, threadID):
         logging.debug("Launching worker on port {0}".format(name[1]))
-        socketWorker(objective, sockname=name, retries=1).run()
+        socketWorker(threadID, objective, name, 1).run()
 
     wthreads = []
-    for threadID in range(1):
+    for threadID in range(4):
+        """
+        Worker 0 will be pre-empted as soon as it is launched.
+        Worker 1 will be pre-empted as soon as an eval is launched.
+        Workers 2 and 3 will execute the requests.
+        """
         wthread = threading.Thread(target=worker_main, args=(name, threadID), name='SocketWorker')
-        print(wthread.name)
         wthread.start()
         wthreads.append(wthread)
 
@@ -131,9 +161,11 @@ def main(args):
     if len(args) > 0 and (args[0] == 's' or args[0] == 'silent'):
         logging.disable(logging.CRITICAL)
 
-    # for threadWorker in simple_thread_workers:
-    #     testSimpleThreadWorkerEvaluation()
-    testSimpleSocketWorkerEvaluation(SimplePreemptibleSocketWorker)
+    for threadWorker in simple_thread_workers:
+        testSimpleThreadWorkerPreemption(threadWorker)
+
+    for socketWorker in simple_socket_workers:
+        testSimpleSocketWorkerPreemption(socketWorker)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

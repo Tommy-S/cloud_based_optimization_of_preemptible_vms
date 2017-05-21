@@ -1,16 +1,14 @@
 import sys
 import logging
-import threading
 import socket
 import errno
-import urllib2
 
 from poap.strategy import FixedSampleStrategy
 
-from surrogateGCP.poapextensions.SimpleWorkers import (
+from poapextensions.SimpleWorkers import (
     SimpleGCPPreemptibleSocketWorker,
 )
-from surrogateGCP.poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer
+from poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer
 
 # Set up default host, port, and time
 TIMEOUT = 0
@@ -30,11 +28,10 @@ def main():
     samples = [0.0, 0.1]
     strategy = FixedSampleStrategy(samples)
     hostip = socket.gethostbyname(socket.gethostname())
-    # publicip = urllib2.urlopen('http://ip.42.pl/raw').read()
 
-    port = 50000
+    port = 5000
     portopen = False
-    while not portopen and port < 60000:
+    while not portopen and port < 6000:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.bind((hostip, port))
@@ -47,19 +44,12 @@ def main():
             else:
                 logger.debug("Port closed")
                 port += 1
-    name = (hostip, port)
-    server = PreemptibleThreadedTCPServer(sockname=name, strategy=strategy)
-    cthread = threading.Thread(target=server.run, name='Server for {0}'.format(socketWorker.__name__))
-    cthread.start()
 
-    # Get controller port
-    name = server.sockname
+    name = (hostip, port)
     logging.info("Launch controller at {0}".format(name))
 
-    # Wait on controller
-    cthread.join()
-
-    raw_input("Hit enter to complete")
+    server = PreemptibleThreadedTCPServer(sockname=name, strategy=strategy)
+    server.run()
 
     result = server.controller.best_point()
     print("Final: {0:.3e} @ {1}".format(result.value, result.params))

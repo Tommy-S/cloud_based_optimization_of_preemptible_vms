@@ -1,9 +1,9 @@
-from surrogateGCP.poapextensions.ThreadWorkers import (
+from poapextensions.ThreadWorkers import (
     EventThreadWorker,
     InterruptibleThreadWorker,
     PreemptibleThreadWorker,
 )
-from surrogateGCP.poapextensions.SocketWorkers import (
+from poapextensions.SocketWorkers import (
     EventSocketWorker,
     InterruptibleSocketWorker,
     PreemptibleSocketWorker,

@@ -1,13 +1,16 @@
-from surrogateGCP.poapextensions.ThreadWorkers import (
+from poapextensions.ThreadWorkers import (
     EventThreadWorker,
     InterruptibleThreadWorker,
     PreemptibleThreadWorker,
 )
-from surrogateGCP.poapextensions.SocketWorkers import (
+from poapextensions.SocketWorkers import (
     EventSocketWorker,
     InterruptibleSocketWorker,
     PreemptibleSocketWorker,
-    GCPPreemptibleSocketWorker,
+    RecoverableSocketWorker
+)
+from poapextensions.PreemptionDetectors import (
+    GCPPreemptionDetector,
 )
 import logging
 
@@ -94,10 +97,16 @@ class SimplePreemptibleSocketWorker(SimpleEvaluator, PreemptibleSocketWorker):
         return simple_socket_evaluate(self, record_id, params)
 
 
-class SimpleGCPPreemptibleSocketWorker(SimpleEvaluator, GCPPreemptibleSocketWorker):
-    def __init__(self, objective, sockname, retries=0):
+class SimpleRecoverableSocketWorker(SimpleEvaluator, RecoverableSocketWorker):
+    def __init__(self, objective, lockClass, stateClass, sockname, retries=0):
         SimpleEvaluator.__init__(self, objective)
-        GCPPreemptibleSocketWorker.__init__(self, sockname, retries)
+        RecoverableSocketWorker.__init__(self, lockClass, stateClass, sockname, retries)
 
-    def evaluate(self, record_id, params):
-        return simple_socket_evaluate(self, record_id, params)
+    def evaluate(self, record_id, params, stateLock, state):
+        return simple_socket_evaluate(self, record_id, params + (stateLock, state))
+
+
+class SimpleGCPPreemptibleSocketWorker(GCPPreemptionDetector, SimplePreemptibleSocketWorker):
+    def __init__(self, objective, sockname, retries=0):
+        GCPPreemptionDetector.__init__(self)
+        SimplePreemptibleSocketWorker.__init__(self, objective, sockname, retries)

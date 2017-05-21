@@ -2,7 +2,7 @@ import sys
 import time
 import logging
 
-from surrogateGCP.poapextensions.SimpleWorkers import (
+from poapextensions.SimpleWorkers import (
     SimpleGCPPreemptibleSocketWorker,
 )
 

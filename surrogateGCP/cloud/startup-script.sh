@@ -1,1 +1,0 @@
-echo 'startup script executed.'

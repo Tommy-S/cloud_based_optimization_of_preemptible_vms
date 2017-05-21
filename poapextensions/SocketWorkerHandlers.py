@@ -81,3 +81,25 @@ class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
 
     def is_alive(self):
         return self.running
+
+
+class RecoverableSocketWorkerHandler(PreemptibleSocketWorkerHandler):
+    def eval(self, record):
+        """Send an evaluation request to remote worker."""
+        logger.debug("Send eval to worker")
+        self.records[id(record)] = record
+        try:
+            m = []
+            if hasattr(record, 'recoveryInfo'):
+                m.append('recover')
+                m.append(record.recoveryInfo)
+            else:
+                m.append('eval')
+            m.append(id(record))
+            m.append(record.params)
+            if record.extra_args is not None:
+                m.append(record.extra_args)
+            self.request.send(self.server.marshall(*m))
+        except Exception as e:
+            logger.warning("In eval: {0}".format(e))
+            self._cleanup(record)
