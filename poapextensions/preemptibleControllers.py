@@ -154,7 +154,7 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
         strategy=None,
         handlers={},
         socketWorkerHandler=PreemptibleSocketWorkerHandler,
-        controller=PreemptibleThreadController()
+        controller=PreemptibleThreadController
     ):
         handlers['eval_preempted'] = self.handle_eval_preempt
         handlers['exit_preempted'] = self.handle_exit_preempt

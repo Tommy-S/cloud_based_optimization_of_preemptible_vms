@@ -6,9 +6,9 @@ import errno
 from poap.strategy import FixedSampleStrategy
 
 from poapextensions.SimpleWorkers import (
-    SimpleGCPPreemptibleSocketWorker,
+    SimpleGCPRecoverableSocketWorker,
 )
-from poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer
+from poapextensions.preemptibleControllers import RecoverableThreadedTCPServer
 
 # Set up default host, port, and time
 TIMEOUT = 0
@@ -22,7 +22,7 @@ def main():
                         level=logging.INFO)
 
     """Testing routine."""
-    socketWorker = SimpleGCPPreemptibleSocketWorker
+    socketWorker = SimpleGCPRecoverableSocketWorker
     print('<<<<<<<<<<<<<<<<<<<<  Testing Evaluation on {0}  >>>>>>>>>>>>>>>>>>>'.format(socketWorker.__name__))
     # Launch controller
     samples = [0.0, 0.1]
@@ -48,7 +48,7 @@ def main():
     name = (hostip, port)
     logging.info("Launch controller at {0}".format(name))
 
-    server = PreemptibleThreadedTCPServer(sockname=name, strategy=strategy)
+    server = RecoverableThreadedTCPServer(sockname=name, strategy=strategy)
     server.run()
 
     result = server.controller.best_point()
