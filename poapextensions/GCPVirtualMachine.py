@@ -139,7 +139,7 @@ class GCPVMMonitor(object):
             time.sleep(self.refreshTime)
 
     def handleMessage(self, msg):
-        pass
+        logger.debug("Message: {0}".format(msg))
 
     def marshall(self, *args):
         "Marshall data to wire format"
