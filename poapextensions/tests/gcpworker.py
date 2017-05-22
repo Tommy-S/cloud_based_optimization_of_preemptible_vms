@@ -11,8 +11,8 @@ def objective(x, stateLock, state):
             stateLock.release()
     initState()
 
-    while state['count'] < 200:
-        time.sleep(200)
+    while state['count'] < 30:
+        time.sleep(1)
         stateLock.acquire()
         state['count'] = state['count'] + 1
         stateLock.release()
