@@ -94,6 +94,7 @@ class GCPVMMonitor(object):
         self.compute = compute
         self.name = name
         self.zone = zone
+        self.family = family
         self.project = project
         self.workers = []
         self.instance = None
