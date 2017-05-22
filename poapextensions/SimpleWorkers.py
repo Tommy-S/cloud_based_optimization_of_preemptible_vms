@@ -110,3 +110,9 @@ class SimpleGCPPreemptibleSocketWorker(GCPPreemptionDetector, SimplePreemptibleS
     def __init__(self, objective, sockname, retries=0):
         GCPPreemptionDetector.__init__(self)
         SimplePreemptibleSocketWorker.__init__(self, objective, sockname, retries)
+
+
+class SimpleGCPRecoverableSocketWorker(GCPPreemptionDetector, SimpleRecoverableSocketWorker):
+    def __init__(self, objective, lockClass, stateClass, sockname, retries=0):
+        GCPPreemptionDetector.__init__(self)
+        SimpleRecoverableSocketWorker.__init__(self, objective, lockClass, stateClass, sockname, retries)

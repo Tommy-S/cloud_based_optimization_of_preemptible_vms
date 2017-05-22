@@ -1,6 +1,12 @@
 from poap.controller import ThreadController
-from poap.tcpserve import ThreadedTCPServer
+try:
+    import socketserver
+except ImportError:
+    import SocketServer as socketserver
+import pickle
+import threading
 from poapextensions.SocketWorkerHandlers import (
+    SocketWorkerHandler,
     PreemptibleSocketWorkerHandler,
     RecoverableSocketWorkerHandler,
 )
@@ -54,15 +60,114 @@ class RecoverableTCPThreadController(ThreadController):
             proposal.reject()
 
 
-class PreemptibleThreadedTCPServer(ThreadedTCPServer):
-    def __init__(self, sockname=("localhost", 0), strategy=None, handlers={}):
-        super(ThreadedTCPServer, self).__init__(sockname, PreemptibleSocketWorkerHandler)
-        handlers['eval_preempted'] = self.handle_eval_preempt
-        handlers['exit_preempted'] = self.handle_exit_preempt
+class ThreadedTCPServer(socketserver.ThreadingMixIn,
+                        socketserver.TCPServer, object):
+    """SocketServer interface for workers to connect to controller.
+
+    The socket server interface lets workers connect to a given
+    TCP/IP port and exchange updates with the controller.
+
+    The server sends messages of the form
+
+        ('eval', record_id, args, extra_args)
+        ('eval', record_id, args)
+        ('kill', record_id)
+        ('terminate')
+
+    The default messages received are
+
+        ('running', record_id)
+        ('kill', record_id)
+        ('cancel', record_id)
+        ('complete', record_id, value)
+
+    The set of handlers can also be extended with a dictionary of
+    named callbacks to be invoked whenever a record update comes in.
+    For example, to set a lower bound field, we might use the handler
+
+        def set_lb(rec, value):
+            rec.lb = value
+        handlers = {'lb' : set_lb }
+
+    This is useful for adding new types of updates without mucking
+    around in the EvalRecord implementation.
+
+    Attributes:
+        controller: ThreadController that manages the optimization
+        handlers: dictionary of specialized message handlers
+        strategy: redirects to the controller strategy
+    """
+
+    def __init__(
+        self,
+        sockname=("localhost", 0),
+        strategy=None,
+        handlers={},
+        socketWorkerHandler=SocketWorkerHandler,
+        controller=ThreadController
+    ):
+        """Initialize the controller on the given (host,port) address.
+
+        Args:
+            sockname: Socket on which to serve workers
+            strategy: Strategy object to connect to controllers
+            handlers: Dictionary of specialized message handlers
+        """
+        super(ThreadedTCPServer, self).__init__(sockname, socketWorkerHandler)
         self.message_handlers = handlers
-        self.controller = PreemptibleThreadController()
+        self.controller = controller()
         self.controller.strategy = strategy
         self.controller.add_term_callback(self.shutdown)
+
+    def marshall(self, *args):
+        """Convert an argument list to wire format."""
+        return pickle.dumps(args)
+
+    def unmarshall(self, data):
+        """Convert wire format back to Python arg list."""
+        return pickle.loads(data)
+
+    @property
+    def strategy(self):
+        return self.controller.strategy
+
+    @strategy.setter
+    def strategy(self, strategy):
+        self.controller.strategy = strategy
+
+    @property
+    def sockname(self):
+        return self.socket.getsockname()
+
+    def run(self, merit=lambda r: r.value, filter=None):
+        thread = threading.Thread(target=self.controller.run)
+        thread.start()
+        self.serve_forever()
+        thread.join()
+        return self.controller.best_point(merit=merit, filter=filter)
+
+
+class PreemptibleThreadedTCPServer(ThreadedTCPServer):
+    def __init__(
+        self,
+        sockname=("localhost", 0),
+        strategy=None,
+        handlers={},
+        socketWorkerHandler=PreemptibleSocketWorkerHandler,
+        controller=PreemptibleThreadController()
+    ):
+        handlers['eval_preempted'] = self.handle_eval_preempt
+        handlers['exit_preempted'] = self.handle_exit_preempt
+
+        super(PreemptibleThreadedTCPServer, self).__init__(
+            sockname=sockname,
+            strategy=strategy,
+            handlers=handlers,
+            socketWorkerHandler=socketWorkerHandler,
+            controller=controller
+        )
+
+        # self.message_handlers = handlers
         # self.daemon_threads = True
 
     def handle_eval_preempt(self, record):
@@ -73,22 +178,24 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
         return
 
 
-class RecoverableThreadedTCPServer(ThreadedTCPServer):
-    def __init__(self, sockname=("localhost", 0), strategy=None, handlers={}):
-        super(ThreadedTCPServer, self).__init__(sockname, RecoverableSocketWorkerHandler)
-        handlers['eval_preempted'] = self.handle_eval_preempt
-        handlers['exit_preempted'] = self.handle_exit_preempt
-        self.message_handlers = handlers
-        self.controller = RecoverableTCPThreadController()
-        self.controller.strategy = strategy
-        self.controller.add_term_callback(self.shutdown)
-        # self.daemon_threads = True
+class RecoverableThreadedTCPServer(PreemptibleThreadedTCPServer):
+    def __init__(
+        self,
+        sockname=("localhost", 0),
+        strategy=None,
+        handlers={},
+        socketWorkerHandler=RecoverableSocketWorkerHandler,
+        controller=RecoverableTCPThreadController
+    ):
+        super(RecoverableThreadedTCPServer, self).__init__(
+            sockname=sockname,
+            strategy=strategy,
+            handlers=handlers,
+            socketWorkerHandler=socketWorkerHandler,
+            controller=controller
+        )
 
     def handle_eval_preempt(self, record, recoveryInfo=None):
         if recoveryInfo is not None:
             record.recoveryInfo = recoveryInfo
-        self.controller.add_message(lambda: record.cancel)
-
-    def handle_exit_preempt(self):
-        logger.debug("Server recognizes that worker was preempted")
-        return
+        PreemptibleThreadedTCPServer.handle_eval_preempt(self, record)

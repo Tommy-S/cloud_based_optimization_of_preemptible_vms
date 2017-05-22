@@ -37,10 +37,10 @@ def list_instances(compute, project, zone):
 
 
 # [START create_instance]
-def create_instance(compute, project, zone, name, bucket):
+def create_instance(compute, project, zone, name, bucket, family='poap-debian', metadata={}):
     # Get the latest Debian Jessie image.
     image_response = compute.images().getFromFamily(
-        project='bustling-syntax-160718', family='poap-debian').execute()
+        project=project, family=family).execute()
     source_disk_image = image_response['selfLink']
 
     # Configure the machine
@@ -99,6 +99,9 @@ def create_instance(compute, project, zone, name, bucket):
             }]
         }
     }
+
+    for key, value in metadata.iteritems():
+        config['metadata']['items'].append({'key': key, 'value': value})
 
     return compute.instances().insert(
         project=project,

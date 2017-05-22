@@ -20,19 +20,27 @@
 # instance creation. Read more about metadata here:
 # https://cloud.google.com/compute/docs/metadata#querying
 CS_BUCKET=$(curl http://metadata/computeMetadata/v1/instance/attributes/bucket -H "Metadata-Flavor: Google")
+HOSTIP=$(curl http://metadata/computeMetadata/v1/instance/attributes/hostip -H "Metadata-Flavor: Google")
+PORT=$(curl http://metadata/computeMetadata/v1/instance/attributes/bucket -H "Metadata-Flavor: Google")
 
-mkdir image-output
-cd image-output
-wget $IMAGE_URL
+mkdir playground
+cd playground
 
-touch testfile.txt
-echo $USER >> testfile.txt
+touch runfile.py
+echo '#!/usr/bin/env python' >> runfile.py
+echo 'from poapextensions.tests import gcpworker.py' >> runfile.py
+echo 'import sys' >> runfile.py
+echo 'hostip = sys.argv[1]' >> runfile.py
+echo 'port = int(sys.argv[2])' >> runfile.py
+echo 'gcpworker.run(hostip, port)' >> runfile.py
+
+python runfile.py $HOSTIP $PORT
 
 # Create a Google Cloud Storage bucket.
-gsutil mb gs://$CS_BUCKET
+# gsutil mb gs://$CS_BUCKET
 
 # Store the image in the Google Cloud Storage bucket and allow all users
 # to read it.
-gsutil cp -a public-read testfile.txt gs://$CS_BUCKET/testfile.txt
+# gsutil cp -a public-read testfile.txt gs://$CS_BUCKET/testfile.txt
 
 # [END startup_script]
