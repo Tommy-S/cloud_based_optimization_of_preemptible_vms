@@ -152,6 +152,7 @@ class BaseInterruptibleWorker(BaseEventWorker):
                 self.message_self(finish_eval)
 
         evalResults = []
+        logger.debug("Eval results: {0}".format(evalResults))
         evalThread = Thread(target=interruptible_eval, args=(evalResults,), name='EvalThread')
         evalThread.daemon = True
         evalThread.start()
