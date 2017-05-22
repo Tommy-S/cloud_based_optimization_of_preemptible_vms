@@ -1,6 +1,7 @@
 import logging
 from threading import Thread
 from collections import deque
+import traceback
 
 # Get module-level logger
 logger = logging.getLogger(__name__)
@@ -155,6 +156,7 @@ class BaseInterruptibleWorker(BaseEventWorker):
         evalThread.daemon = True
         evalThread.start()
         logger.debug("Exiting interruptible_eval")
+        traceback.print_stack()
 
     def can_run_request(self, request):
         return not self.evaluating and not self.evalThread.isAlive()
