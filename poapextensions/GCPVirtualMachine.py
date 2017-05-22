@@ -1,5 +1,5 @@
 import googleapiclient.discovery
-import googleapiclient.errors.HttpError
+import googleapiclient.errors
 import os
 import time
 import threading
