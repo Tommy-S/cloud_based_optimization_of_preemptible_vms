@@ -56,7 +56,6 @@ class RecoverableTCPThreadController(ThreadController):
             else:
                 self._submit_work(proposal)
         except Queue.Empty:
-            logger.debug("Reject eval proposal -- no worker")
             proposal.reject()
 
 
