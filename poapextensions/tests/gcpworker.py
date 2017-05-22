@@ -1,6 +1,9 @@
 from poapextensions.SimpleWorkers import SimpleGCPRecoverableSocketWorker
 from poapextensions.RecoveryStates import BasicLock, BasicStateObject
 import time
+import logging
+
+logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)
 
 
 def objective(x, stateLock, state):

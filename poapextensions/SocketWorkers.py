@@ -28,6 +28,7 @@ class SocketWorker(_SocketWorker):
             self.sock.settimeout(prevtimeout)
 
     def examine_incoming_request(self, request):
+        logger.debug("Request: {0}".format(request))
         if request is None:
             return None
         elif request[0] == 'kill':
