@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s",
-                        level=logging.DEBUG)
+                        level=logging.INFO)
 
     """Testing routine."""
     socketWorker = SimpleGCPRecoverableSocketWorker

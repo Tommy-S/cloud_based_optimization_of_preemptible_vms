@@ -53,7 +53,7 @@ compute = googleapiclient.discovery.build('compute', 'v1')
 metadata = {"hostip": hostip, 'port': str(port)}
 
 for workerNum in range(numWorkers):
-    instance_name = 'gcpworker' + workerNum
+    instance_name = 'gcpworker' + str(workerNum)
     operation = create_instance.create_instance(compute, project, zone, instance_name, bucket, family=family, metadata=metadata)
 
     def wfc(compute, project, zone, operation, workerNum):
