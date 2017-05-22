@@ -154,7 +154,7 @@ class GCPVMMonitor(object):
         self.sock.send(self.marshall(*args))
 
     def launchWorker(self, *args):
-        self.send(*(['launchWorker'] + args))
+        self.send(*(('launchWorker') + args))
 
     def addWorker(self, socketWorkerHandler):
         self.workers.append(socketWorkerHandler)
