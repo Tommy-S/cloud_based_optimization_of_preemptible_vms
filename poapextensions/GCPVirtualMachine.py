@@ -95,7 +95,6 @@ class GCPVMMonitor(object):
         self.name = name
         self.zone = zone
         self.project = project
-        self.vm_alive
         self.workers = []
         self.instance = None
         self.refreshTime = refreshTime
