@@ -166,9 +166,7 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
             socketWorkerHandler=socketWorkerHandler,
             controller=controller
         )
-
-        # self.message_handlers = handlers
-        # self.daemon_threads = True
+        self.daemon_threads = True
 
     def handle_eval_preempt(self, record):
         self.controller.add_message(lambda: record.cancel)
