@@ -25,6 +25,7 @@ class SocketWorker(_SocketWorker):
         self.sock.settimeout(timeout)
         try:
             data = self.sock.recv(4096)
+            logger.debug(data)
             return self.unmarshall(data)
         except socket.timeout:
             return None
