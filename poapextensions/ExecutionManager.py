@@ -60,3 +60,6 @@ for workerNum in range(numWorkers):
 
 # Wait on controller and workers
 cthread.join()
+
+result = server.controller.best_point()
+print("Final: {0:.3e} @ {1}".format(result.value, result.params))
