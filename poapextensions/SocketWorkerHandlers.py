@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
 
+    def setup(self):
+        logger.info("New connection established")
+
     def handle(self):
         """Main event loop called from SocketServer."""
         cthread = threading.current_thread()

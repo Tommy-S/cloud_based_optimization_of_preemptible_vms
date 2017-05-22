@@ -44,7 +44,7 @@ cthread.start()
 
 # Get controller port
 name = server.sockname
-logging.debug("Launch controller at {0}".format(name))
+logger.debug("Launch controller at {0}".format(name))
 
 
 # Launch workers

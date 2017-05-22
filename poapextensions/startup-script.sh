@@ -28,7 +28,7 @@ cd playground
 
 touch runfile.py
 echo '#!/usr/bin/env python' >> runfile.py
-echo 'from poapextensions.tests import gcpworker.py' >> runfile.py
+echo 'from poapextensions.tests import gcpworker' >> runfile.py
 echo 'import sys' >> runfile.py
 echo 'hostip = sys.argv[1]' >> runfile.py
 echo 'port = int(sys.argv[2])' >> runfile.py
