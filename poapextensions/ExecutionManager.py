@@ -9,7 +9,7 @@ import errno
 import googleapiclient.discovery
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)
+logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.INFO)
 
 numWorkers = 2
 project = 'bustling-syntax-160718'

@@ -106,3 +106,12 @@ class RecoverableSocketWorkerHandler(PreemptibleSocketWorkerHandler):
         except Exception as e:
             logger.warning("In eval: {0}".format(e))
             self._cleanup(record)
+
+    def marshall(self, *args):
+        logger.info("Sending: {0}".format(args))
+        PreemptibleSocketWorkerHandler.marshall(self, *args)
+
+    def unmarshall(self, data):
+        _data = PreemptibleSocketWorkerHandler.unmarshall(self, data)
+        logger.info("Received: {0}".format(_data))
+        return _data
