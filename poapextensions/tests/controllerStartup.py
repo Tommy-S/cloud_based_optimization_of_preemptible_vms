@@ -3,12 +3,11 @@ import logging
 import socket
 import errno
 
-from poap.strategy import FixedSampleStrategy
-
 from poapextensions.SimpleWorkers import (
     SimpleGCPRecoverableSocketWorker,
 )
 from poapextensions.preemptibleControllers import RecoverableThreadedTCPServer
+from poapextensions.StatefulPreemptionStrategy import RecoverableFixedSampleStrategy
 
 # Set up default host, port, and time
 TIMEOUT = 0
@@ -19,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 def main():
     logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s",
-                        level=logging.INFO)
+                        level=logging.DEBUG)
 
     """Testing routine."""
     socketWorker = SimpleGCPRecoverableSocketWorker
     print('<<<<<<<<<<<<<<<<<<<<  Testing Evaluation on {0}  >>>>>>>>>>>>>>>>>>>'.format(socketWorker.__name__))
     # Launch controller
     samples = [0.0, 0.1]
-    strategy = FixedSampleStrategy(samples)
+    strategy = RecoverableFixedSampleStrategy(samples)
     hostip = socket.gethostbyname(socket.gethostname())
 
     port = 5000
