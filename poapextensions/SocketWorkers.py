@@ -16,6 +16,10 @@ class SocketWorker(_SocketWorker):
     def __init__(self, sockname, retries=0):
         _SocketWorker.__init__(self, sockname, retries)
 
+    def send(self, *args):
+        logger.debug("Sending: {0}".format(args))
+        _SocketWorker.send(self, *args)
+
     def receive_request(self, timeout=1):
         prevtimeout = self.sock.gettimeout()
         self.sock.settimeout(timeout)
