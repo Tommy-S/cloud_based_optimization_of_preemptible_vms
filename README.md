@@ -1,3 +1,7 @@
+To install:
+pip install -r requirements.txt
+pip install -e .
+
 Installations Required:
 
 Google Compute Platform SDK (https://cloud.google.com/sdk/)  
