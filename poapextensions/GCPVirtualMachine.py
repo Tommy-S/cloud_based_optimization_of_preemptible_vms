@@ -194,9 +194,6 @@ class GCPVMMonitor(object):
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     s.bind((hostip, port))
                     s.listen(1)
-                    conn, addr = s.accept()
-                    s.settimeout(0.1)
-                    self.sock = conn
                     portopen = True
                 except socket.error as error:
                     if not error.errno == errno.EADDRINUSE:
@@ -210,6 +207,9 @@ class GCPVMMonitor(object):
                 return False
 
             self.wait_for_operation(self._start(port))
+            conn, addr = s.accept()
+            s.settimeout(0.1)
+            self.sock = conn
             logger.debug("Startup completed")
 
             refreshThread = threading.Thread(
