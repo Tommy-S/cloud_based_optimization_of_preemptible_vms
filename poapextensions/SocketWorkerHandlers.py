@@ -18,6 +18,7 @@ class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
         cthread = threading.current_thread()
         if len(cthread.name) >= 7 and cthread.name[0:7] == 'Thread-':
             cthread.name = "SocketWorkerHandler"
+        self.server.handle_new_connection(self.client_address, self)
         self.request.settimeout(0.1)
         self.records = {}
         self.running = True

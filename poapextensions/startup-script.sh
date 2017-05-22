@@ -19,7 +19,6 @@
 # Use the metadata server to get the configuration specified during
 # instance creation. Read more about metadata here:
 # https://cloud.google.com/compute/docs/metadata#querying
-CS_BUCKET=$(curl http://metadata/computeMetadata/v1/instance/attributes/bucket -H "Metadata-Flavor: Google")
 HOSTIP=$(curl http://metadata/computeMetadata/v1/instance/attributes/hostip -H "Metadata-Flavor: Google")
 PORT=$(curl http://metadata/computeMetadata/v1/instance/attributes/port -H "Metadata-Flavor: Google")
 
@@ -27,12 +26,11 @@ mkdir playground
 cd playground
 
 touch runfile.py
-echo '#!/usr/bin/env python' >> runfile.py
-echo 'from poapextensions.tests import gcpworker' >> runfile.py
+echo 'from poapextensions.GCPVirtualMachine import GCPWorkerManager' >> runfile.py
 echo 'import sys' >> runfile.py
 echo 'hostip = sys.argv[1]' >> runfile.py
 echo 'port = int(sys.argv[2])' >> runfile.py
-echo 'gcpworker.run(hostip, port)' >> runfile.py
+echo 'GCPWorkerManager(hostip, port, retries=1).run()' >> runfile.py
 
 python runfile.py $HOSTIP $PORT
 

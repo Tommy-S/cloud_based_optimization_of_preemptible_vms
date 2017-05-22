@@ -104,7 +104,8 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn,
         strategy=None,
         handlers={},
         socketWorkerHandler=SocketWorkerHandler,
-        controller=ThreadController
+        controller=ThreadController,
+        newConnectionCallbacks=[]
     ):
         """Initialize the controller on the given (host,port) address.
 
@@ -118,6 +119,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn,
         self.controller = controller()
         self.controller.strategy = strategy
         self.controller.add_term_callback(self.shutdown)
+        self.newConnectionCallbacks = newConnectionCallbacks
 
     def marshall(self, *args):
         """Convert an argument list to wire format."""
@@ -146,6 +148,10 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn,
         thread.join()
         return self.controller.best_point(merit=merit, filter=filter)
 
+    def handle_new_connection(self, clientIP, socketWorkerHandler):
+        for callback in self.newConnectionCallbacks:
+            callback(clientIP, socketWorkerHandler)
+
 
 class PreemptibleThreadedTCPServer(ThreadedTCPServer):
     def __init__(
@@ -154,7 +160,8 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
         strategy=None,
         handlers={},
         socketWorkerHandler=PreemptibleSocketWorkerHandler,
-        controller=PreemptibleThreadController
+        controller=PreemptibleThreadController,
+        newConnectionCallbacks=[]
     ):
         handlers['eval_preempted'] = self.handle_eval_preempt
         handlers['exit_preempted'] = self.handle_exit_preempt
@@ -164,7 +171,8 @@ class PreemptibleThreadedTCPServer(ThreadedTCPServer):
             strategy=strategy,
             handlers=handlers,
             socketWorkerHandler=socketWorkerHandler,
-            controller=controller
+            controller=controller,
+            newConnectionCallbacks=newConnectionCallbacks
         )
         self.daemon_threads = True
 
@@ -183,14 +191,16 @@ class RecoverableThreadedTCPServer(PreemptibleThreadedTCPServer):
         strategy=None,
         handlers={},
         socketWorkerHandler=RecoverableSocketWorkerHandler,
-        controller=RecoverableTCPThreadController
+        controller=RecoverableTCPThreadController,
+        newConnectionCallbacks=[]
     ):
         super(RecoverableThreadedTCPServer, self).__init__(
             sockname=sockname,
             strategy=strategy,
             handlers=handlers,
             socketWorkerHandler=socketWorkerHandler,
-            controller=controller
+            controller=controller,
+            newConnectionCallbacks=newConnectionCallbacks
         )
 
     def handle_eval_preempt(self, record, recoveryInfo=None):
