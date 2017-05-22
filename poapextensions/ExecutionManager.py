@@ -56,11 +56,5 @@ for workerNum in range(numWorkers):
     instance_name = 'gcpworker' + str(workerNum)
     operation = create_instance.create_instance(compute, project, zone, instance_name, bucket, family=family, metadata=metadata)
 
-    def wfc(compute, project, zone, operation, workerNum):
-        create_instance.wait_for_operation(compute, project, zone, operation['name'])
-        logger.info("Worker {0} has been created".format(workerNum))
-    waitForComplete = threading.Thread(target = wfc, args=(compute, project, zone, operation, workerNum))
-    waitForComplete.start()
-
 # Wait on controller and workers
 cthread.join()
