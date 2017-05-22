@@ -59,7 +59,7 @@ for workerNum in range(numWorkers):
     def wfc(compute, project, zone, operation, workerNum):
         create_instance.wait_for_operation(compute, project, zone, operation['name'])
         logger.info("Worker {0} has been created".format(workerNum))
-    waitForComplete = threading.thread(target = wfc, args=(compute, project, zone, operation, workerNum))
+    waitForComplete = threading.Thread(target = wfc, args=(compute, project, zone, operation, workerNum))
     waitForComplete.start()
 
 # Wait on controller and workers
