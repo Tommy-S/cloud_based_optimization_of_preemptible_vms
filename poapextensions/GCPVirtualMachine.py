@@ -114,7 +114,7 @@ class GCPVMMonitor(object):
             self.instance = None
 
     def _refreshInstance(self):
-        while self.vm_alive:
+        while self.is_vm_alive:
             self.refreshInstance()
             deadWorkers = []
             for worker in self.workers:
