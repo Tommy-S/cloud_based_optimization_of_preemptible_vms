@@ -11,6 +11,8 @@ from poapextensions.GCPVirtualMachine import GCPVMMonitor
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)
 logging.getLogger('poap.tcpserve').setLevel(logging.INFO)
+logging.getLogger('poap.strategy').setLevel(logging.INFO)
+logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.INFO)
 
 compute = googleapiclient.discovery.build('compute', 'v1')
 vm = GCPVMMonitor(compute, 'gcpworker0')

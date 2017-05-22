@@ -32,7 +32,7 @@ echo 'hostip = sys.argv[1]' >> runfile.py
 echo 'port = int(sys.argv[2])' >> runfile.py
 echo 'GCPWorkerManager(hostip, port, retries=1).run()' >> runfile.py
 
-python runfile.py $HOSTIP $PORT
+# python runfile.py $HOSTIP $PORT
 
 # Create a Google Cloud Storage bucket.
 # gsutil mb gs://$CS_BUCKET
