@@ -51,6 +51,7 @@ logging.debug("Launch controller at {0}".format(name))
 compute = googleapiclient.discovery.build('compute', 'v1')
 
 metadata = {"hostip": hostip, 'port': str(port)}
+logger.info(metadata)
 
 for workerNum in range(numWorkers):
     instance_name = 'gcpworker' + str(workerNum)
