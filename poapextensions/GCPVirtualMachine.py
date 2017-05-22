@@ -12,6 +12,7 @@ from poapextensions.PreemptionDetectors import GCPPreemptionDetector
 from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
+logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
 
 
 def launchWorker(args):
@@ -103,7 +104,6 @@ class GCPVMMonitor(object):
         self.metadata = metadata
 
     def is_vm_alive(self):
-        self.refreshStatus()
         status = self.getStatus()
         return status in ['STAGING', 'RUNNING']
 
@@ -193,9 +193,10 @@ class GCPVMMonitor(object):
                 try:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     s.bind((hostip, port))
-                    s.listen(5)
+                    s.listen(1)
+                    conn, addr = s.accept()
                     s.settimeout(0.1)
-                    self.sock = s
+                    self.sock = conn
                     portopen = True
                 except socket.error as error:
                     if not error.errno == errno.EADDRINUSE:
