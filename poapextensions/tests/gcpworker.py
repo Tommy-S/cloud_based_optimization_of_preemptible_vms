@@ -15,8 +15,8 @@ def objective(x, stateLock, state):
             stateLock.release()
     initState()
 
-    while state['count'] < 30:
-        logger.debug('count')
+    while state['count'] < 10:
+        logger.debug('count {0}'.format(state['count']))
         time.sleep(1)
         stateLock.acquire()
         state['count'] = state['count'] + 1
