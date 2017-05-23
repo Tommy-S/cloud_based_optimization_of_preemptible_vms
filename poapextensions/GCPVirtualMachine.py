@@ -54,12 +54,15 @@ class GCPWorkerManager(GCPPreemptionDetector):
         "Run a message from the controller"
         if not self.running:
             return
-        data = self.unmarshall(self.sock.recv(4096))
+        data = self.sock.recv(4096)
+        if not data:
+            return
+        msg = self.unmarshall(data)
 
-        if data[0] == 'ping':
+        if msg[0] == 'ping':
             self.ping()
-        elif data[0] == 'launchWorker':
-            self._launchWorker(*data[1:])
+        elif msg[0] == 'launchWorker':
+            self._launchWorker(*msg[1:])
 
     def ping(self):
         self.send("ping")
@@ -131,7 +134,10 @@ class GCPVMMonitor(object):
 
             try:
                 while True:
-                    msg = self.unmarshall(self.sock.recv(4096))
+                    data = self.sock.recv(4096)
+                    if not data:
+                        break
+                    msg = self.unmarshall(data)
                     self.handleMessage(msg)
             except socket.timeout:
                 pass
@@ -207,6 +213,7 @@ class GCPVMMonitor(object):
                 return False
 
             self.wait_for_operation(self._start(port))
+
             self.refreshInstance()
             conn, addr = s.accept()
             s.settimeout(0.1)

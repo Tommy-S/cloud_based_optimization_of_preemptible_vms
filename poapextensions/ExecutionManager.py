@@ -15,55 +15,74 @@ logging.getLogger('poap.strategy').setLevel(logging.INFO)
 logging.getLogger('poap.controller').setLevel(logging.INFO)
 logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.INFO)
 
+
+def findFreePort():
+    port = 10000
+    portopen = False
+    while not portopen:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind((hostip, port))
+            s.close()
+            portopen = True
+            logger.debug("Port open")
+        except socket.error as error:
+            if not error.errno == errno.EADDRINUSE:
+                raise
+            else:
+                logger.debug("Port closed")
+                port += 1
+    return port
+
 compute = googleapiclient.discovery.build('compute', 'v1')
-vm = GCPVMMonitor(compute, 'gcpworker0')
-vm.start()
-logger.info("Instance: {0}".format(vm.instance))
 
-
-def ncc(clientIP, socketWorker):
-    logger.info("Worker discovered: {0}. VM IP: {1}".format(clientIP, vm.getInternalIP()))
-    if clientIP == vm.getInternalIP():
-        logger.info("Adding socket worker to client")
-        vm.addWorker(socketWorker)
-    else:
-        logger.info("Not adding socket worker to client")
+# Launch all the virtual machines
+numVMs = 1
+vms = {}
+i = 0
+while len(vms) < numVMs:
+    vm = GCPVMMonitor(compute, 'gcpworker0')
+    if vm.start():
+        vms[vm.getInternalIP()] = vm
 
 samples = [0.0, 0.1]
 strategy = RecoverableFixedSampleStrategy(samples)
 
 hostip = socket.gethostbyname(socket.gethostname())
 
-port = 50000
-portopen = False
-while not portopen and port < 60000:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((hostip, port))
-        s.close()
-        portopen = True
-        logger.debug("Port open")
-    except socket.error as error:
-        if not error.errno == errno.EADDRINUSE:
-            raise
-        else:
-            logger.debug("Port closed")
-            port += 1
+port = findFreePort()
 name = (hostip, port)
-server = RecoverableThreadedTCPServer(sockname=name, strategy=strategy, newConnectionCallbacks=[ncc])
-cthread = threading.Thread(target=server.run, name='Server for {0}'.format(SimpleGCPRecoverableSocketWorker.__name__))
-cthread.daemon = True
+
+
+def ncc(clientIP, socketWorkerHandler):
+    vms[vm.getInternalIP()].addWorker(socketWorkerHandler)
+
+server = RecoverableThreadedTCPServer(
+    sockname=name,
+    strategy=strategy,
+    newConnectionCallbacks=[ncc]
+)
+
+cthread = threading.Thread(
+    target=server.run,
+    name='Server for {0}'.format(SimpleGCPRecoverableSocketWorker.__name__)
+)
 cthread.start()
 
-# Get controller port
+# Get server IP and port
 name = server.sockname
 logger.debug("Launch controller at {0}".format(name))
 
 
 # Launch workers
-vm.launchWorker(name[0], name[1])
+serverIP = name[0]
+serverPort = name[1]
+workersPerVM = 1
+for _ in range(workersPerVM):
+    for _, vm in vms.iteritems:
+        vm.launchWorker(serverIP, serverPort)
 
-# Wait on controller and workers
+# Wait on evaluation to conclude
 cthread.join()
 
 result = server.controller.best_point()
