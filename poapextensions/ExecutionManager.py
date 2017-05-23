@@ -16,7 +16,7 @@ logging.getLogger('poap.controller').setLevel(logging.INFO)
 logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.INFO)
 
 compute = googleapiclient.discovery.build('compute', 'v1')
-vm = GCPVMMonitor(compute, 'gcpworker0')
+vm = GCPVMMonitor(compute, 'gcpworker1')
 vm.start()
 logger.info("Instance: {0}".format(vm.instance))
 
