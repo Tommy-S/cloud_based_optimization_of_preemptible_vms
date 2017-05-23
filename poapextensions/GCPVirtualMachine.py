@@ -207,6 +207,7 @@ class GCPVMMonitor(object):
                 return False
 
             self.wait_for_operation(self._start(port))
+            self.refreshInstance()
             conn, addr = s.accept()
             s.settimeout(0.1)
             self.sock = conn

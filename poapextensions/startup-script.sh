@@ -22,8 +22,11 @@
 HOSTIP=$(curl http://metadata/computeMetadata/v1/instance/attributes/hostip -H "Metadata-Flavor: Google")
 PORT=$(curl http://metadata/computeMetadata/v1/instance/attributes/port -H "Metadata-Flavor: Google")
 
-mkdir playground
-cd playground
+cd /home/paulwest4/cloud_based_optimization_of_preemptible_vms
+git pull
+
+mkdir /playground
+cd /playground
 
 touch runfile.py
 echo 'from poapextensions.GCPVirtualMachine import GCPWorkerManager' >> runfile.py
