@@ -8,6 +8,7 @@ import errno
 import googleapiclient.discovery
 from poapextensions.GCPVirtualMachine import GCPVMMonitor
 import Queue
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
 
-def findFreePort(startPort=10000):
+def findFreePort(hostip, startPort=10000):
     port = startPort
     portopen = False
     while not portopen:
@@ -38,14 +39,13 @@ def findFreePort(startPort=10000):
     return port
 
 
-def testVMExecution(numVMs, workersPerVM, project)
+def testVMExecution(numVMs, workersPerVM, project):
     compute = googleapiclient.discovery.build('compute', 'v1')
 
     # Launch all the virtual machines
     vms = {}
     i = 0
     launchThreads = Queue.Queue()
-
 
     def launchVM(vmName):
         vm = GCPVMMonitor(compute, vmName, project)
@@ -69,7 +69,7 @@ def testVMExecution(numVMs, workersPerVM, project)
 
     hostip = socket.gethostbyname(socket.gethostname())
 
-    port = findFreePort()
+    port = findFreePort(hostip)
     name = (hostip, port)
 
     server = RecoverableThreadedTCPServer(
@@ -90,7 +90,6 @@ def testVMExecution(numVMs, workersPerVM, project)
     # Get server IP and port
     name = server.sockname
     logger.debug("Launch controller at {0}".format(name))
-
 
     # Launch workers
     serverIP = name[0]
