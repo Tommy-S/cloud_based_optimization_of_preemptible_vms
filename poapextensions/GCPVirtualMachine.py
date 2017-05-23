@@ -90,7 +90,8 @@ class GCPVMMonitor(object):
         name,
         project = 'bustling-syntax-160718',
         zone = 'us-east1-b',
-        family = 'poap-debian',
+        imageProject = 'debian-cloud',
+        imageFamily = 'debian-8',
         refreshTime = 10,
         preemptible = True,
         metadata = {}
@@ -98,8 +99,9 @@ class GCPVMMonitor(object):
         self.compute = compute
         self.name = name
         self.zone = zone
-        self.family = family
+        self.imageFamily = imageFamily
         self.project = project
+        self.imageProject = imageProject
         self.workers = []
         self.instance = None
         self.refreshTime = refreshTime
@@ -238,7 +240,7 @@ class GCPVMMonitor(object):
     def _start(self, port):
         # Get the latest Debian Jessie image.
         image_response = self.compute.images().getFromFamily(
-            project=self.project, family=self.family).execute()
+            project=self.imageProject, family=self.imageFamily).execute()
         source_disk_image = image_response['selfLink']
 
         # Configure the machine
