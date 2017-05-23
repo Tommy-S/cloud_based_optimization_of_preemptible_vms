@@ -79,7 +79,7 @@ serverIP = name[0]
 serverPort = name[1]
 workersPerVM = 1
 for _ in range(workersPerVM):
-    for _, vm in vms.iteritems:
+    for _, vm in vms.iteritems():
         vm.launchWorker(serverIP, serverPort)
 
 # Wait on evaluation to conclude
@@ -87,4 +87,4 @@ cthread.join()
 
 result = server.controller.best_point()
 print("Final: {0:.3e} @ {1}".format(result.value, result.params))
-vm.stop()
+# vm.stop()
