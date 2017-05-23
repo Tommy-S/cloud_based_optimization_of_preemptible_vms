@@ -7,18 +7,17 @@ import logging
 import socket
 import pickle
 import errno
-from poapextensions.tests import gcpworker
+from poapextensions import SampleGCPWorker
 from poapextensions.PreemptionDetectors import GCPPreemptionDetector
 from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
-logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
 
 
 def launchWorker(args):
     hostIP = args[0]
     port = args[1]
-    gcpworker.run(hostIP, port)
+    SampleGCPWorker.run(hostIP, port)
 
 
 class GCPWorkerManager(GCPPreemptionDetector):
@@ -88,7 +87,7 @@ class GCPVMMonitor(object):
         self,
         compute,
         name,
-        project = 'bustling-syntax-160718',
+        project,
         zone = 'us-east1-b',
         imageProject = 'debian-cloud',
         imageFamily = 'debian-8',
@@ -185,7 +184,6 @@ class GCPVMMonitor(object):
                 operation=operation['name']).execute()
 
             if result['status'] == 'DONE':
-                print("done.")
                 if 'error' in result:
                     raise Exception(result['error'])
                 return result
@@ -215,12 +213,13 @@ class GCPVMMonitor(object):
                 return False
 
             self.wait_for_operation(self._start(port))
-
             self.refreshInstance()
+            logger.debug("VM {0} running on {1}".format(self.name, self.getInternalIP()))
+
             conn, addr = s.accept()
             s.settimeout(0.1)
             self.sock = conn
-            logger.debug("Startup completed")
+            logger.info("Finished initializing VM {0} running on {1}".format(self.name, self.getInternalIP()))
 
             refreshThread = threading.Thread(
                 target = self._refreshInstance,
@@ -235,6 +234,7 @@ class GCPVMMonitor(object):
 
     def stop(self):
         if self.instance is not None:
+            self.sock.close()
             self._delete_instance()
 
     def _start(self, port):

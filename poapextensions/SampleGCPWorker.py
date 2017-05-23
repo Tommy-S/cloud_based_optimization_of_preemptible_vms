@@ -4,7 +4,6 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)
 
 
 def objective(x, stateLock, state):
