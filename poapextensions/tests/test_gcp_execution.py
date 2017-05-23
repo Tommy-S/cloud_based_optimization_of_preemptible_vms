@@ -17,7 +17,8 @@ logging.getLogger('poap.tcpserve').setLevel(logging.INFO)
 logging.getLogger('poap.strategy').setLevel(logging.INFO)
 logging.getLogger('poap.controller').setLevel(logging.INFO)
 logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.INFO)
-logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
+logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
+logging.getLogger('googleapiclient.googleapiclient.discovery_cache').setLevel(logging.ERROR)
 
 
 def findFreePort(hostip, startPort=10000):
@@ -77,7 +78,7 @@ def testVMExecution(numVMs, workersPerVM, project):
         strategy=strategy,
         newConnectionCallbacks=[
             # Pair a new socketWorkerHandler with the VM on which it is running
-            lambda clientIP, socketWorkerHandler: vms[clientIP].addWorker(socketWorkerHandler)
+            lambda clientAddr, socketWorkerHandler: vms[clientAddr[0]].addWorker(socketWorkerHandler)
         ]
     )
 
