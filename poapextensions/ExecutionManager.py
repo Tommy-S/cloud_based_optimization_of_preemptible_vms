@@ -18,6 +18,7 @@ logging.getLogger('poapextensions.StatefulPreemptionStrategy').setLevel(logging.
 compute = googleapiclient.discovery.build('compute', 'v1')
 vm = GCPVMMonitor(compute, 'gcpworker0')
 vm.start()
+logger.info("Instance: {0}".format(vm.instance))
 
 
 def ncc(clientIP, socketWorker):
