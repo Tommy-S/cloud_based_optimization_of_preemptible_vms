@@ -55,8 +55,9 @@ class SocketWorker(_SocketWorker):
         if request[0] == 'eval':
             logger.debug("Worker thread received eval request")
             record_id = request[1]
-            args = request[2:]
-            self.message_self(self.handle_eval, [record_id] + args)
+            args = [record_id]
+            args[1:] = request[2:]
+            self.message_self(self.handle_eval, args)
         else:
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
 
