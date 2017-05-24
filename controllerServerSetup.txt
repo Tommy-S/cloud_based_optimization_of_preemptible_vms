@@ -1,3 +1,6 @@
+# Run while SSHed into a Google Compute Engine server running Debian
+
+
 sudo apt-get update
 sudo apt-get install -y git-core
 sudo apt-get install -y python-dev build-essential

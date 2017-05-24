@@ -2,7 +2,7 @@ from poapextensions.SimpleWorkers import (
     SimplePreemptibleThreadWorker,
     SimplePreemptibleSocketWorker,
 )
-from poapextensions.preemptibleControllers import PreemptibleThreadedTCPServer, PreemptibleThreadController
+from poapextensions.PreemptibleControllers import PreemptibleThreadedTCPServer, PreemptibleThreadController
 import threading
 import logging
 import sys

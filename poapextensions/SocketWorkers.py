@@ -56,7 +56,7 @@ class SocketWorker(_SocketWorker):
             logger.debug("Worker thread received eval request")
             record_id = request[1]
             args = request[2:]
-            self.handle_eval(record_id, *args)
+            self.message_self(self.handle_eval, [record_id] + args)
         else:
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
 
@@ -65,9 +65,6 @@ class EventSocketWorker(BaseEventWorker, SocketWorker):
     def __init__(self, sockname, retries=0):
         BaseEventWorker.__init__(self)
         SocketWorker.__init__(self, sockname, retries)
-
-    def can_run_request(self, request):
-        return True
 
 
 class InterruptibleSocketWorker(BaseInterruptibleWorker, EventSocketWorker):

@@ -1,7 +1,7 @@
 import socket
 
 
-class GCPPreemptionDetector(object):
+class GCEPreemptionDetector(object):
     def __init__(self):
         self.acpid_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.acpid_socket.connect("/var/run/acpid.socket")

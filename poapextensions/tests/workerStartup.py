@@ -3,7 +3,7 @@ import time
 import logging
 
 from poapextensions.SimpleWorkers import (
-    SimpleGCPPreemptibleSocketWorker,
+    SimpleGCEPreemptibleSocketWorker,
 )
 
 
@@ -23,13 +23,13 @@ def f(x):
     return (x + 1) * (x + 1)
 
 
-class TestSimpleGCPPreemptibleSocketWorker(SimpleGCPPreemptibleSocketWorker):
+class TestSimpleGCEPreemptibleSocketWorker(SimpleGCEPreemptibleSocketWorker):
     def __init__(self, objective, sockname, retries=0):
-        SimpleGCPPreemptibleSocketWorker.__init__(self, f, sockname, retries)
+        SimpleGCEPreemptibleSocketWorker.__init__(self, f, sockname, retries)
 
     def evaluate(self, record_id, params):
         raw_input("Hit enter to start evaluation")
-        return SimpleGCPPreemptibleSocketWorker.evaluate(self, record_id, params)
+        return SimpleGCEPreemptibleSocketWorker.evaluate(self, record_id, params)
 
 
 def main():
@@ -41,7 +41,7 @@ def main():
 
     # Launch worker
     print(NAME)
-    TestSimpleGCPPreemptibleSocketWorker(f, name, 1).run()
+    TestSimpleGCEPreemptibleSocketWorker(f, name, 1).run()
 
     print("Worker done")
 

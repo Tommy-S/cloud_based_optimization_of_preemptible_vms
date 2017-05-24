@@ -5,10 +5,10 @@ from poapextensions.RecoveryStates import (
     BasicLock,
     BasicStateObject,
 )
-from poapextensions.preemptibleControllers import (
+from poapextensions.PreemptibleControllers import (
     RecoverableThreadedTCPServer,
 )
-from poapextensions.StatefulPreemptionStrategy import (
+from poapextensions.RecoverableStrategies import (
     RecoverableFixedSampleStrategy,
 )
 import threading
