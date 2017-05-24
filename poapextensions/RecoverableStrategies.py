@@ -12,11 +12,11 @@ class RecoverableRetryStrategy(RetryStrategy):
         RetryStrategy.__init__(self)
 
     def rput(self, proposal):
-        "Put a retry proposal in the queue."
+        """Put a retry proposal in the queue."""
         if not hasattr(proposal, 'retry'):
             logger.debug("Setting up retry")
             self._set(proposal, proposal.copy())
-            proposal.retry = True
+            proposal.retry = True  # Bugfix from POAP.strategy.RetryStrategy
             if proposal.action == 'eval':
                 proposal.add_callback(self.on_reply)
                 self.num_eval_pending += 1
@@ -29,17 +29,18 @@ class RecoverableRetryStrategy(RetryStrategy):
         self.put(proposal)
 
     def _resubmit(self, key):
-        "Recycle a previously-submitted retry proposal."
+        """Recycle a previously-submitted retry proposal with recovery information."""
         logger.debug("Resubmitting retry proposal")
         proposal = self._pop(key)
         if hasattr(key, 'recoveryInfo'):
-            logger.debug("Found record with state")
             proposal.recoveryInfo = key.recoveryInfo
         self.rput(proposal)
 
 
 class RecoverableFixedSampleStrategy(BaseStrategy):
     """Sample at a fixed set of points.
+
+    Retries proposals that are preempted.
 
     The fixed sampling strategy is appropriate for any non-adaptive
     sampling scheme.  Since the strategy is non-adaptive, we can
@@ -59,14 +60,14 @@ class RecoverableFixedSampleStrategy(BaseStrategy):
             points: Points list or generator function.
         """
         def point_generator():
-            "Generator wrapping the points list."
+            """Generator wrapping the points list."""
             for point in points:
                 yield point
         self.point_generator = point_generator()
         self.retry = RecoverableRetryStrategy()
 
     def propose_action(self):
-        "Propose an action based on outstanding points."
+        """Propose an action based on outstanding points."""
         try:
             if self.retry.empty():
                 logger.debug("Getting new point from fixed schedule")

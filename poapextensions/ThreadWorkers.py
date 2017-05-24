@@ -13,26 +13,19 @@ logger = logging.getLogger(__name__)
 
 class ThreadWorker(BaseWorkerThread):
     """
-    Sets up the machinery for pre-emptible workers.
-    This class is intended to be used in multiple inheritance
-    with other POAP workers.
+    Sets up the machinery for workers to operate in a thread.
 
-    Preemptible workers use one thread to detect preemption events and
-    another for evaluation. During optimization function, the root worker
-    thread blocks until either a preemption event is detected or
-    optimization function evaluation completes.
-
-    Inheriting classes need to implement:
-    (1) is_preempted(self) : bool
-    (2) _eval(self, params) : unit
-    (3) finish_preempted(self, params) : unit
-
+    Assumes connection with a ThreadController.
     """
 
     def __init__(self, controller):
         BaseWorkerThread.__init__(self, controller)
 
     def receive_request(self, timeout=1):
+        """
+        Adapt the poap.controller.BaseWorkerThread interface to an EventWorker.
+        Does not implement the complete POAP worker interface.
+        """
         try:
             request = self.queue.get(True, timeout)
             return request
@@ -40,6 +33,12 @@ class ThreadWorker(BaseWorkerThread):
             return None
 
     def examine_incoming_request(self, request):
+        """
+        Special handling for incoming requests, if necessary.
+        Passes through requests that can be executed normally.
+        Implements one of the required functions in the BaseEventWorker
+        interface.
+        """
         if request is None:
             return None
         elif request[0] == 'kill':
@@ -54,6 +53,11 @@ class ThreadWorker(BaseWorkerThread):
             return request
 
     def handle_terminate(self):
+        """
+        Placeholder.
+        Implements one of the required functions in the BaseEventWorker
+        interface.
+        """
         self.running = False
 
     def run_request(self, request):
@@ -64,6 +68,13 @@ class ThreadWorker(BaseWorkerThread):
             self.message_self(self.handle_eval, [record])
         else:
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
+
+
+"""
+The following classes all combine BaseEventWorker types with
+ThreadWorker to create ThreadWorkers that are close to
+implementing the POAP worker interface.
+"""
 
 
 class EventThreadWorker(BaseEventWorker, ThreadWorker):

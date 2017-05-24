@@ -18,7 +18,10 @@ class BaseEventWorker(object):
     [function object, arg1, arg2, ...]. Messages are handled
     in a FIFO manner.
 
-    BaseEventWorkers do not implement the full POAP worker interface.
+    BaseEventWorkers do not implement the full POAP worker interface:
+    they are designed to be used in multiple-inheritance with
+    other worker structures that implement the remainder of the worker
+    interface, such as SocketWorkers or ThreadWorkers.
 
     Inheriting classes need to implement:
     (1) receive_request(self) : request
@@ -37,26 +40,31 @@ class BaseEventWorker(object):
     (4) evaluate(self, *params) : [function object, *args]
         Evaluate the local optimization function. Return type must
         be in the form of a message. Inheriting classes overload this.
-
     """
 
     def __init__(self):
         """Initialize the EventWorker."""
-        self.messageQueue = deque()
-        self.requestQueue = deque()
+        self.messageQueue = deque()  # Holds executable messages
+        self.requestQueue = deque()  # Holds requests from the controller
         self.running = False
 
     def run(self, loop=True):
         """Main loop."""
         self.running = True
-        if hasattr(self, 'setname'):  # For workers running in threads
-            self.setname('ThreadWorker')
         self._run()
         while loop and self.running:
             self._run()
         logger.info("Worker exiting run()")
 
     def _run(self):
+        """
+        One iteration of the main loop.
+        First, process everything in the executable message queue
+        at the start of this iteration. This prevents getting stuck
+        in infinite message loops without processing controller
+        requests.
+        Then process a request from the controller, if one is available.
+        """
         for _ in range(len(self.messageQueue)):
             if not self.running:
                 return
@@ -87,31 +95,42 @@ class BaseEventWorker(object):
             pass
 
     def message_self(self, fn, args=[]):
+        """
+        Add a function callback and arguments to the message queue.
+        All additions to the message queue should go through here.
+        """
         self.messageQueue.append((fn, args))
 
     def can_run_request(self, request):
+        """
+        Placeholder for later subclasses.
+        Decide if conditions are suitable to execute a
+        request from the controller.
+        """
         return True
 
     def handle_eval(self, *params):
+        """
+        Wrapper for self.evaluate(*params).
+        Subclasses may override this function to provide
+        different structure for optimization function evaluation.
+
+        @parameter params should be passed through to self.evaluate().
+        """
         self.message_self(self.evaluate(*params))
 
 
 class BaseInterruptibleWorker(BaseEventWorker):
     """
-    Sets up the machinery for pre-emptible workers.
-    This class is intended to be used in multiple inheritance
-    with other POAP workers.
+    Sets up the machinery for interruptible workers.
 
-    Preemptible workers use one thread to detect preemption events and
-    another for evaluation. During optimization function, the root worker
-    thread blocks until either a preemption event is detected or
-    optimization function evaluation completes.
+    Interruptible workers run the evaluation function in a
+    thread so that the main worker thread can continue to
+    process requests from the controller and other messages
+    such as kill and terminate requests.
 
-    Inheriting classes need to implement:
-    (1) is_preempted(self) : bool
-    (2) _eval(self, params) : unit
-    (3) finish_preempted(self, params) : unit
-
+    Inheriting classes need to implement the same functions
+    as with the BaseEventWorker class.
     """
 
     def __init__(self):
@@ -123,32 +142,38 @@ class BaseInterruptibleWorker(BaseEventWorker):
 
     def handle_eval(self, *params):
         """
-        Wrap optimization function evaluation so it can be canceled in case of an interruption.
+        Run evaluation in a thread so interruptions can occur.
 
         Args:
-            params: passed through to _eval and finish_interrupted
+            params: passed through to evaluate() and finish_interrupted()
         """
         self.evalParams = params
         self.evaluating = True
 
-        def interruptible_eval(evalResults):
-            evalResults[:] = self.evaluate(*params)
+        def interruptible_eval():
+            evalResults = self.evaluate(*params)
+
+            def finish_eval():
+                evalResults[0](*evalResults[1:])
+                self.evaluating = False
             if self.evaluating:
-                def finish_eval():
-                    evalResults[0](*evalResults[1:])
-                    self.evaluating = False
                 self.message_self(finish_eval)
 
-        evalResults = []
-        evalThread = Thread(target=interruptible_eval, args=(evalResults,), name='EvalThread')
+        evalThread = Thread(target=interruptible_eval, name='EvalThread')
         evalThread.daemon = True
         evalThread.start()
         logger.debug("Exiting interruptible_eval")
 
     def can_run_request(self, request):
+        """True iff an existing evaluation is not already running."""
         return not self.evaluating and not self.evalThread.isAlive()
 
     def handle_kill(self, *params):
+        """
+        Mark evaluation complete even iff it is currently running.
+        Python does not support killing threads, but that would
+        happen here if possible.
+        """
         if self.evaluating:
             self.evaluating = False
             evalParams = self.evalParams
@@ -157,15 +182,30 @@ class BaseInterruptibleWorker(BaseEventWorker):
 
 
 class BasePreemptibleWorker(BaseInterruptibleWorker):
+    """
+    Add preemption as a type of evaluation interruption.
+
+    Inheriting classes need to implement the same functions
+    as with the BaseEventWorker class, as well as:
+
+    (1) finish_preempted(self, *params) : unit
+        Handle cleanup of pre-empted evaluation
+
+    (2) is_preempted(self) : boolean
+        Detect preemption events
+    """
+
     def __init__(self):
+        """Initialize the superclass."""
         BaseInterruptibleWorker.__init__(self)
 
     def run(self):
+        """Initialize preemption detection, then start the main loop."""
         def detect_preemption():
             """
             Repeatedly check for preemption events.
-            If one has been found, set the preemption flag and release the
-            semaphore to interrupt any ongoing optimization function evaluation.
+            If one has been found, handle it. Otherwise add this
+            function back to the messageQueue to check again.
             """
             if self.is_preempted():
                 logger.debug("Worker detected preemption event")
@@ -176,21 +216,18 @@ class BasePreemptibleWorker(BaseInterruptibleWorker):
         self.message_self(detect_preemption)
         BaseInterruptibleWorker.run(self)
 
-    def _run(self):
-        BaseInterruptibleWorker._run(self)
-
     def handle_preempt(self):
-        if self.evaluating and hasattr(self, 'finish_preempted'):
+        """Clean up and shut down the worker after a preemption event."""
+        if self.evaluating:
             self.finish_preempted(*self.evalParams)
         self.running = False
         self.evaluating = False
         self.preempt()
 
-    def finish_preempted(self, *params):
-        pass
-
     def is_preempted(self):
+        """Detect preemption events. Placeholder."""
         return False
 
     def preempt(self):
+        """Handle worker-specific shutdown procedures."""
         logger.debug("Worker exiting from preemption")

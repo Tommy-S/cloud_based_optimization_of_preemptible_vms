@@ -15,13 +15,25 @@ logger = logging.getLogger(__name__)
 
 
 def launchWorker(args):
+    """Launch a SocketWorker on a given host and port."""
     hostIP = args[0]
     port = args[1]
     SampleGCEWorker.run(hostIP, port)
 
 
 class GCEWorkerManager(GCEPreemptionDetector):
+    """
+    Communicate with a GCEVMMonitor.
+    Initialize and run this class on a Google Compute Engine Debian server.
+    Intended to be run from the startup script.
+    """
+
     def __init__(self, hostIP, port, retries=0, launchWorker=launchWorker):
+        """
+        Initialize GCEWorkerManager.
+        launchWorker is a function object that takes String arguments
+        from the GCEVMMonitor to launch SocketWorkers.
+        """
         GCEPreemptionDetector.__init__(self)
         self.hostIP = hostIP
         self.port = port
@@ -38,19 +50,19 @@ class GCEWorkerManager(GCEPreemptionDetector):
                 time.sleep(1)
 
     def marshall(self, *args):
-        "Marshall data to wire format"
+        """Marshall data to wire format."""
         return pickle.dumps(args)
 
     def unmarshall(self, data):
-        "Convert data from wire format back to Python tuple"
+        """Convert data from wire format back to Python tuple."""
         return pickle.loads(data)
 
     def send(self, *args):
-        "Send a message to the controller"
+        """Send a message to the controller."""
         self.sock.send(self.marshall(*args))
 
     def _run(self):
-        "Run a message from the controller"
+        """Run a message from the controller."""
         if not self.running:
             return
         data = self.sock.recv(4096)
@@ -64,13 +76,20 @@ class GCEWorkerManager(GCEPreemptionDetector):
             self._launchWorker(*msg[1:])
 
     def ping(self):
+        """Heartbeat."""
         self.send("ping")
 
     def _launchWorker(self, *args):
+        """
+        Launch workers in a separate process.
+        On preemption, they are on their own.
+        This class is only responsible for passing arguments
+        through to self.launchWorker.
+        """
         Process(target=self.launchWorker, args=(args,)).start()
 
     def run(self):
-        "Main loop"
+        """Main loop."""
         try:
             self._run()
             while self.running and not self.is_preempted():
@@ -83,6 +102,11 @@ class GCEWorkerManager(GCEPreemptionDetector):
 
 
 class GCEVMMonitor(object):
+    """
+    Wrap creation and deletion of Google Compute Engine servers for use with POAP.
+    For example usage see poapextensions.tests/test_gce_execution
+    """
+
     def __init__(
         self,
         compute,
@@ -149,15 +173,15 @@ class GCEVMMonitor(object):
         logger.debug("Message: {0}".format(msg))
 
     def marshall(self, *args):
-        "Marshall data to wire format"
+        """Marshall data to wire format."""
         return pickle.dumps(args)
 
     def unmarshall(self, data):
-        "Convert data from wire format back to Python tuple"
+        """Convert data from wire format back to Python tuple."""
         return pickle.loads(data)
 
     def send(self, *args):
-        "Send a message to the controller"
+        """Send a message to the controller."""
         self.sock.send(self.marshall(*args))
 
     def launchWorker(self, *args):

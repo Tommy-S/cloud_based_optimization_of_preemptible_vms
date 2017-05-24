@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
+    """Add preemption handling to a SocketWorkerHandler."""
 
     def setup(self):
         logger.info("New connection established")
@@ -89,6 +90,8 @@ class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
 
 
 class RecoverableSocketWorkerHandler(PreemptibleSocketWorkerHandler):
+    """Add worker recovery to a PreemptibleSocketWorkerHandler."""
+
     def eval(self, record):
         """Send an evaluation request to remote worker."""
         logger.debug("Send eval to worker")
@@ -108,12 +111,3 @@ class RecoverableSocketWorkerHandler(PreemptibleSocketWorkerHandler):
         except Exception as e:
             logger.warning("In eval: {0}".format(e))
             self._cleanup(record)
-
-    def marshall(self, *args):
-        logger.info("Sending: {0}".format(args))
-        PreemptibleSocketWorkerHandler.marshall(self, *args)
-
-    def unmarshall(self, data):
-        _data = PreemptibleSocketWorkerHandler.unmarshall(self, data)
-        logger.info("Received: {0}".format(_data))
-        return _data

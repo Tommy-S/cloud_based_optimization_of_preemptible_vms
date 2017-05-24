@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class PreemptibleThreadController(ThreadController):
+    """Add handling of dead workers to ThreadController."""
 
     def _submit_work(self, proposal):
         """Submit proposed work."""
@@ -40,6 +41,7 @@ class PreemptibleThreadController(ThreadController):
 
 
 class RecoverableTCPThreadController(ThreadController):
+    """Add worker recovery to ThreadController."""
 
     def _submit_work(self, proposal):
         """Submit proposed work."""
@@ -95,6 +97,8 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn,
         controller: ThreadController that manages the optimization
         handlers: dictionary of specialized message handlers
         strategy: redirects to the controller strategy
+        newConnectionCallbacks: functions to execute when a new
+            SocketWorkerHandler is created.
     """
 
     def __init__(

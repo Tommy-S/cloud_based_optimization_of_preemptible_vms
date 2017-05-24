@@ -18,6 +18,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+"""
+Implement simple Python function evaluation for a bunch
+of combinations of Thread and Socket workers.
+This completes the POAP worker interface.
+"""
+
+
 class SimpleEvaluator(object):
     def __init__(self, objective):
         self.objective = objective
