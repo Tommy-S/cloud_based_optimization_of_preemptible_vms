@@ -61,7 +61,7 @@ class ThreadWorker(BaseWorkerThread):
             logger.debug("Worker thread received eval request")
             record = request[1]
             self.add_message(record.running)
-            self.message_self(self.handle_eval, record)
+            self.message_self(self.handle_eval, [record])
         else:
             logger.warning("Worker received unrecognized request: {0}".format(request[0]))
 
