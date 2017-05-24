@@ -31,6 +31,7 @@ class PreemptibleSocketWorkerHandler(SocketWorkerHandler):
                     if not data:
                         return
                     args = self.server.unmarshall(data)
+                    logger.debug("Received: {0}".format(args))
                     self._handle_message(args)
                 except socket.timeout:
                     pass
