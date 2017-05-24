@@ -88,6 +88,7 @@ class PreemptibleSocketWorker(BasePreemptibleWorker, EventSocketWorker):
 
     def preempt(self):
         self.send('exit_preempted')
+        self.sock.close()
 
 
 class RecoverableSocketWorker(PreemptibleSocketWorker):
