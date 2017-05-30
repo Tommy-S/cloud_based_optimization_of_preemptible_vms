@@ -9,8 +9,4 @@ GCP API Client for Python (https://github.com/google/google-api-python-client)
 POAP (https://github.com/dbindel/POAP)
 
 
-Folders:
-
-
-Tests to run: 
-
+More details can be found in CloudBasedOptimizationWithPreemptibleVMs.pdf
