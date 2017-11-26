@@ -175,7 +175,7 @@ class AWSVMMonitor(object):
         #except googleapiclient.errors.HttpError:
         except ClientError as e:
             self.instance = None
-
+    '''
     def _refreshInstance(self):
         while self.is_vm_alive:
             self.refreshInstance()
@@ -203,6 +203,7 @@ class AWSVMMonitor(object):
                 pass
 
             time.sleep(self.refreshTime)
+    '''
 
     def handleMessage(self, msg):
         logger.debug("Message: {0}".format(msg))
@@ -270,27 +271,29 @@ class AWSVMMonitor(object):
                         port += 1
             
             self.refreshInstance()
+            '''
             if self.instance is not None:
                 logger.debug("Instance {0} already exists with status {1}".format(self.name, self.getStatus()))
                 return False
+            '''
 
             #self.wait_for_operation(self._start(port))
-            self.refreshInstance()
-            logger.debug("VM {0} running on {1}".format(self.name, self.getInternalIP()))
+            #self.refreshInstance()
+            #logger.debug("VM {0} running on {1}".format(self.name, self.getInternalIP()))
         
 
             conn, addr = s.accept()
             s.settimeout(0.1)
             self.sock = conn
             logger.info("Finished initializing VM {0} running on {1}".format(self.name, self.getInternalIP()))
-            
+            '''
             refreshThread = threading.Thread(
                 target = self._refreshInstance,
                 name = self.name + ' -- Refresh Instance'
             )
             refreshThread.daemon = True
             refreshThread.start()
-            
+            '''
 
             return True
         except:
@@ -300,7 +303,7 @@ class AWSVMMonitor(object):
         if self.instance is not None:
             self.sock.close()
             #self._delete_instance()
-            self.compute.terminate_instances()
+            self.compute.terminate_instances(InstanceIds=[self.instance['Instances'][0]['InstanceId']])
     
 #TODO
     '''
@@ -389,3 +392,4 @@ class AWSVMMonitor(object):
             zone=self.zone,
             instance=self.name).execute()
     '''
+
