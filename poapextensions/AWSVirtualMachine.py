@@ -1,5 +1,3 @@
-#import googleapiclient.discovery
-#import googleapiclient.errors
 import os
 import time
 import threading
@@ -154,8 +152,10 @@ class AWSVMMonitor(object):
 
                                                 mkdir /playground
                                                 cd /playground
-                                                git clone https://github.com/Tommy-S/cloud_based_optimization_of_preemptible_vms.git
                                                 git clone https://github.com/dbindel/POAP.git
+                                                git clone https://github.com/Tommy-S/cloud_based_optimization_of_preemptible_vms.git
+
+                                                cp -r POAP/poap cloud_based_optimization_of_preemptible_vms 
                                                 cd cloud_based_optimization_of_preemptible_vms
 
                                                 touch runfile.py
@@ -163,12 +163,11 @@ class AWSVMMonitor(object):
                                                 echo 'logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)' >> runfile.py
 
                                                 echo 'import sys' >> runfile.py
-                                                echo 'ip = "54.197.219.149" ' >> runfile.py
+                                                echo 'ip = "54.205.26.158" ' >> runfile.py
                                                 echo 'from poapextensions.AWSVirtualMachine import GCEWorkerManager' >> runfile.py
                                                 echo 'GCEWorkerManager(ip, 44100, retries=1).run()' >> runfile.py
 
-                                                cd ..
-                                                python cloud_based_optimization_of_preemptible_vms/runfile.py 
+                                                python runfile.py 
                                         """
 
                                 
@@ -256,13 +255,13 @@ class AWSVMMonitor(object):
     def start(self):
         try:
             hostip = socket.gethostbyname(socket.gethostname())
-            port = 10000
+            port = 44100
             portopen = False
             while not portopen:
                 try:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.bind((hostip, port))
-                    s.listen(1)
+                    s.bind(('', 44100))
+                    s.listen(1000)
                     portopen = True
                 except socket.error as error:
                     if not error.errno == errno.EADDRINUSE:
