@@ -111,19 +111,15 @@ class AWSVMMonitor(object):
         self,
         compute,
         name,
-        project,
         refreshTime = 10,
         preemptible = True,
-        metadata = {}
     ):
         self.compute = compute
         self.name = name
-        self.project = project
         self.workers = []
         self.instance = None
         self.refreshTime = refreshTime
         self.preemptible = preemptible
-        self.metadata = metadata
 #TODO
     def is_vm_alive(self):
         '''
@@ -133,48 +129,17 @@ class AWSVMMonitor(object):
         status = self.getStatus()
         return status in ['pending', 'running']
 #TODO
+    '''
     def refreshInstance(self):
         try:
             #self.instance = self.compute.instances().get(project=self.project, zone=self.zone, instance=self.name).execute()
             
-            self.instance = self.compute.run_instances(
-                                ImageId='ami-8c1be5f6',
-                                InstanceType='t2.micro',
-                                KeyName='poaptest',
-                                MaxCount=1,
-                                MinCount=1,
-                                UserData= """
-                                                #!/bin/bash
 
-                                                sudo yum upgrade -y
-                                                sudo yum install -y git
-                                                pip install boto3
-
-                                                mkdir /playground
-                                                cd /playground
-                                                git clone https://github.com/dbindel/POAP.git
-                                                git clone https://github.com/Tommy-S/cloud_based_optimization_of_preemptible_vms.git
-
-                                                cp -r POAP/poap cloud_based_optimization_of_preemptible_vms 
-                                                cd cloud_based_optimization_of_preemptible_vms
-
-                                                touch runfile.py
-                                                echo 'import logging' >> runfile.py
-                                                echo 'logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)' >> runfile.py
-
-                                                echo 'import sys' >> runfile.py
-                                                echo 'ip = "54.205.26.158" ' >> runfile.py
-                                                echo 'from poapextensions.AWSVirtualMachine import GCEWorkerManager' >> runfile.py
-                                                echo 'GCEWorkerManager(ip, 44100, retries=1).run()' >> runfile.py
-
-                                                python runfile.py 
-                                        """
-
-                                
-                            )
         #except googleapiclient.errors.HttpError:
         except ClientError as e:
             self.instance = None
+    '''
+
     '''
     def _refreshInstance(self):
         while self.is_vm_alive:
@@ -270,7 +235,39 @@ class AWSVMMonitor(object):
                     else:
                         port += 1
             
-            self.refreshInstance()
+            self.instance = self.compute.run_instances(
+                                ImageId='ami-8c1be5f6',
+                                InstanceType='t2.micro',
+                                KeyName='poaptest',
+                                MaxCount=1,
+                                MinCount=1,
+                                UserData= """
+                                                #!/bin/bash
+
+                                                sudo yum upgrade -y
+                                                sudo yum install -y git
+                                                pip install boto3
+
+                                                mkdir /playground
+                                                cd /playground
+                                                git clone https://github.com/dbindel/POAP.git
+                                                git clone https://github.com/Tommy-S/cloud_based_optimization_of_preemptible_vms.git
+
+                                                cp -r POAP/poap cloud_based_optimization_of_preemptible_vms 
+                                                cd cloud_based_optimization_of_preemptible_vms
+
+                                                touch runfile.py
+                                                echo 'import logging' >> runfile.py
+                                                echo 'logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)' >> runfile.py
+
+                                                echo 'import sys' >> runfile.py
+                                                echo 'ip = "54.205.26.158" ' >> runfile.py
+                                                echo 'from poapextensions.AWSVirtualMachine import GCEWorkerManager' >> runfile.py
+                                                echo 'GCEWorkerManager(ip, 44100, retries=1).run()' >> runfile.py
+
+                                                python runfile.py 
+                                        """
+                            )            
             '''
             if self.instance is not None:
                 logger.debug("Instance {0} already exists with status {1}".format(self.name, self.getStatus()))
@@ -302,94 +299,6 @@ class AWSVMMonitor(object):
     def stop(self):
         if self.instance is not None:
             self.sock.close()
-            #self._delete_instance()
             self.compute.terminate_instances(InstanceIds=[self.instance['Instances'][0]['InstanceId']])
     
-#TODO
-    '''
-    def _start(self, port):
-        # Get the latest Debian Jessie image.
-        image_response = self.compute.images().getFromFamily(
-            project=self.imageProject, family=self.imageFamily).execute()
-        source_disk_image = image_response['selfLink']
-
-        # Configure the machine
-        machine_type = "zones/%s/machineTypes/n1-standard-1" % self.zone
-        startup_script = open(
-            os.path.join(
-                os.path.dirname(__file__), 'startup-script.sh'), 'r').read()
-
-        config = {
-            'name': self.name,
-            'machineType': machine_type,
-            'scheduling': {
-                'preemptible': self.preemptible
-            },
-
-            # Specify the boot disk and the image to use as a source.
-            'disks': [
-                {
-                    'boot': True,
-                    'autoDelete': True,
-                    'initializeParams': {
-                        'sourceImage': source_disk_image,
-                    }
-                }
-            ],
-
-            # Specify a network interface with NAT to access the public
-            # internet.
-            'networkInterfaces': [{
-                'network': 'global/networks/default',
-                'accessConfigs': [
-                    {'type': 'ONE_TO_ONE_NAT', 'name': 'External NAT'}
-                ]
-            }],
-
-            # Allow the instance to access cloud storage and logging.
-            'serviceAccounts': [{
-                'email': 'default',
-                'scopes': [
-                    'https://www.googleapis.com/auth/devstorage.read_write',
-                    'https://www.googleapis.com/auth/logging.write'
-                ]
-            }],
-
-            # Metadata is readable from the instance and allows you to
-            # pass configuration from deployment scripts to instances.
-            'metadata': {
-                'items': [
-                    {
-                        # Startup script is automatically executed by the
-                        # instance upon startup.
-                        'key': 'startup-script',
-                        'value': startup_script
-                    },
-                    {
-                        'key': 'hostip',
-                        'value': socket.gethostbyname(socket.gethostname())
-                    },
-                    {
-                        'key': 'port',
-                        'value': str(port)
-                    }
-                ]
-            }
-        }
-
-        for key, value in self.metadata.iteritems():
-            config['metadata']['items'].append({'key': key, 'value': value})
-
-        return self.compute.instances().insert(
-            project=self.project,
-            zone=self.zone,
-            body=config).execute()
-    '''
-    '''
-    def _delete_instance(self):
-        return self.compute.instances().delete(
-            project=self.project,
-            zone=self.zone,
-            instance=self.name).execute()
-    '''
 
