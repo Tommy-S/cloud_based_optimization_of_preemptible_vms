@@ -20,7 +20,7 @@ logging.getLogger('poap.controller').setLevel(logging.INFO)
 logging.getLogger('poapextensions.RecoverableStrategies').setLevel(logging.INFO)
 
 
-'''
+
 def findFreePort(hostip, startPort=10000):
     port = startPort
     portopen = False
@@ -38,10 +38,10 @@ def findFreePort(hostip, startPort=10000):
                 logger.debug("Port closed")
                 port += 1
     return port
-    '''
+    
 
 
-def testVMExecution(numVMs, workersPerVM, project):
+def testVMExecution(numVMs, workersPerVM):
     ec2 = boto3.client('ec2')
 
     # Launch all the virtual machines
@@ -50,7 +50,7 @@ def testVMExecution(numVMs, workersPerVM, project):
     launchThreads = Queue.Queue()
 
     def launchVM(vmName):
-        vm = AWSVMMonitor(ec2, vmName, project)
+        vm = AWSVMMonitor(ec2, vmName)
         if vm.start():
             vms[vm.getInternalIP()] = vm
 
@@ -69,10 +69,9 @@ def testVMExecution(numVMs, workersPerVM, project):
     samples = [0.0, 0.1]
     strategy = RecoverableFixedSampleStrategy(samples)
 
-    #hostip = socket.gethostbyname(socket.gethostname())
-    hostip = '127.0.0.1'
-    #port = findFreePort(hostip)
-    port = 44100
+    hostip = socket.gethostbyname(socket.gethostname())
+    port = findFreePort(hostip)
+
     name = (hostip, port)
 
     server = RecoverableThreadedTCPServer(
@@ -118,8 +117,7 @@ def testVMExecution(numVMs, workersPerVM, project):
 def main(args):
     numVMs = 1
     workersPerVM = 1
-    project = 'bustling-syntax-160718'
-    testVMExecution(numVMs, workersPerVM, project)
+    testVMExecution(numVMs, workersPerVM)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
