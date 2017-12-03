@@ -122,10 +122,6 @@ class AWSVMMonitor(object):
         self.preemptible = preemptible
 #TODO
     def is_vm_alive(self):
-        '''
-        status = self.getStatus()
-        return status in ['STAGING', 'RUNNING']
-        '''
         status = self.getStatus()
         return status in ['pending', 'running']
 #TODO
@@ -134,8 +130,6 @@ class AWSVMMonitor(object):
         try:
             #self.instance = self.compute.instances().get(project=self.project, zone=self.zone, instance=self.name).execute()
             
-
-        #except googleapiclient.errors.HttpError:
         except ClientError as e:
             self.instance = None
     '''
@@ -234,15 +228,9 @@ class AWSVMMonitor(object):
                         raise
                     else:
                         port += 1
-            
-            self.instance = self.compute.run_instances(
-                                ImageId='ami-8c1be5f6',
-                                InstanceType='t2.micro',
-                                KeyName='poaptest',
-                                MaxCount=1,
-                                MinCount=1,
-                                UserData= """
-                                                #!/bin/bash
+            #userData is a startup script for the worker VM
+            userData = """
+                #!/bin/bash
 
                                                 sudo yum upgrade -y
                                                 sudo yum install -y git
@@ -261,12 +249,24 @@ class AWSVMMonitor(object):
                                                 echo 'logging.basicConfig(format="%(name)-18s: %(levelname)-8s %(message)s", level=logging.DEBUG)' >> runfile.py
 
                                                 echo 'import sys' >> runfile.py
-                                                echo 'ip = "54.205.26.158" ' >> runfile.py
-                                                echo 'from poapextensions.AWSVirtualMachine import GCEWorkerManager' >> runfile.py
-                                                echo 'GCEWorkerManager(ip, 44100, retries=1).run()' >> runfile.py
+                                                echo 'ip = " """ + str(socket.gethostbyname(socket.gethostname())) + """ " ' >> runfile.py """
 
-                                                python runfile.py 
-                                        """
+            userData += """
+                    echo 'ip = ip.strip()' >> runfile.py
+                    echo 'from poapextensions.AWSVirtualMachine import GCEWorkerManager' >> runfile.py
+                    echo 'print(ip)' >> runfile.py
+                    echo 'GCEWorkerManager(ip, 44100, retries=1).run()' >> runfile.py
+
+                    python runfile.py 
+            """
+
+            self.instance = self.compute.run_instances(
+                                ImageId='ami-8c1be5f6',
+                                InstanceType='t2.micro',
+                                KeyName='poaptest',
+                                MaxCount=1,
+                                MinCount=1,
+                                UserData=userData 
                             )            
             '''
             if self.instance is not None:
